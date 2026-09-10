@@ -1,0 +1,60 @@
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Jupyter Notebook Checkpoints
+.ipynb_checkpoints/
+
+# Environment Variables & Secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/*
+!logs/.gitkeep
+*.log
+
+# Trained Model Artifacts
+models/*.pkl
+models/*.joblib
+models/*.h5
+models/*.pt
+models/*.onnx
+models/*.bin
+!models/.gitkeep
+!models/champion_*.joblib
+
+# Raw and Processed Datasets (reproducible via pipelines; GitHub limits files to <100MB)
+data/raw/*
+!data/raw/.gitkeep
+!data/raw/**/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/features/*
+!data/features/.gitkeep
+data/evaluation/*
+!data/evaluation/.gitkeep
+data/monitoring/*
+!data/monitoring/.gitkeep
+*.parquet
+*.duckdb
+*.db
+*.sqlite3
+
+# IDE and OS Metadata
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

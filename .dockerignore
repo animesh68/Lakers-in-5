@@ -1,0 +1,48 @@
+# Git & Version Control
+.git
+.github
+.gitignore
+
+# Python Bytecode & Environments
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.venv
+venv
+ENV
+env
+
+# Testing & Code Quality Caches
+.pytest_cache
+.coverage
+htmlcov
+.ruff_cache
+
+# Environment Variables & Secrets
+.env
+.env.*
+configs/*.env
+!configs/database.env.example
+
+# Raw Data & Intermediate Analytics (Not needed for production inference)
+data/raw/
+data/evaluation/
+*.duckdb
+*.duckdb.wal
+
+# Logs & Temporary Files
+logs/
+*.log
+tmp/
+temp/
+
+# IDE & OS Metadata
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+
+# Notebooks
+*.ipynb
+.ipynb_checkpoints
