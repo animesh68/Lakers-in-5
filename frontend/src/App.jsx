@@ -907,7 +907,7 @@ export default function App() {
                   type="text"
                   value={apiUrl}
                   onChange={(e) => setApiUrl(e.target.value)}
-                  placeholder="https://lakers-in-5-api.onrender.com"
+                  placeholder="https://lakers-in-5.onrender.com"
                   style={{ width: '100%', padding: '12px 14px', borderRadius: 'var(--radius-md)', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid var(--border-subtle)', color: '#FFFFFF', fontSize: '0.95rem', outline: 'none' }}
                 />
               </div>
@@ -915,7 +915,7 @@ export default function App() {
               {/* Quick Presets */}
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button 
-                  onClick={() => handleSaveApiUrl('https://lakers-in-5-api.onrender.com')}
+                  onClick={() => handleSaveApiUrl('https://lakers-in-5.onrender.com')}
                   className="btn btn-ghost" 
                   style={{ fontSize: '0.8rem', padding: '6px 12px' }}
                 >
