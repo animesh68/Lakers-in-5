@@ -1,0 +1,41 @@
+# ==============================================================================
+# Lakers in 5 — Render Blueprint Deployment Specification
+# Multi-service containerized deployment for FastAPI API & Streamlit Dashboard
+# ==============================================================================
+
+services:
+  # ----------------------------------------------------------------------------
+  # Service 1: FastAPI Production Inference & Monitoring Backend
+  # ----------------------------------------------------------------------------
+  - type: web
+    name: lakers-in-5-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false # Set via Render Dashboard Environment / Secrets
+      - key: DB_POOL_SIZE
+        value: "10"
+      - key: DB_MAX_OVERFLOW
+        value: "20"
+      - key: PYTHONPATH
+        value: "/app"
+
+  # ----------------------------------------------------------------------------
+  # Service 2: Streamlit Interactive Monitoring & Forecasting Dashboard
+  # ----------------------------------------------------------------------------
+  - type: web
+    name: lakers-in-5-dashboard
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: streamlit run src/dashboard/app.py --server.port 8501 --server.address 0.0.0.0 --server.headless true
+    plan: starter
+    envVars:
+      - key: DATABASE_URL
+        sync: false # Set via Render Dashboard Environment / Secrets
+      - key: PYTHONPATH
+        value: "/app"
