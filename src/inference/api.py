@@ -100,6 +100,18 @@ def get_retrain_engine() -> RetrainingDecisionEngine:
     return _retrain_engine
 
 
+@app.on_event("startup")
+def startup_warmup():
+    """Pre-warms champion models, DuckDB lakehouse, and schedule service on server boot."""
+    try:
+        logger.info("Pre-warming production inference predictor and schedule service...")
+        get_predictor()
+        get_schedule_service().load_schedule()
+        logger.info("FastAPI service startup pre-warming completed successfully.")
+    except Exception as e:
+        logger.warning(f"Startup pre-warming encountered notice (non-fatal): {e}")
+
+
 @app.get("/health", summary="Service Health Check")
 def health_check():
     predictor = get_predictor()

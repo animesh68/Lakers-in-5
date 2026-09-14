@@ -50,11 +50,13 @@ class EloCalculator:
         current_season = None
         self.ratings.clear()
 
-        for idx, row in df.iterrows():
-            season = row.get("season")
-            home_team = str(row.get("home_team_id"))
-            away_team = str(row.get("away_team_id"))
-            
+        seasons = df["season"].values
+        home_ids = df["home_team_id"].astype(str).values
+        away_ids = df["away_team_id"].astype(str).values
+        home_scores = df["home_score"].values
+        away_scores = df["away_score"].values
+
+        for season, home_team, away_team, home_score, away_score in zip(seasons, home_ids, away_ids, home_scores, away_scores):
             # Apply season reversion when crossing into a new season
             if current_season is not None and season != current_season:
                 for t in self.ratings:
@@ -74,8 +76,6 @@ class EloCalculator:
             elo_diffs.append(elo_diff)
 
             # 2. Update Elo ratings post-game based on actual result
-            home_score = row.get("home_score")
-            away_score = row.get("away_score")
             if pd.notna(home_score) and pd.notna(away_score):
                 home_win = 1.0 if float(home_score) > float(away_score) else 0.0
                 exp_home_win = self.expected_win_prob(effective_home_elo, pre_away_elo)
