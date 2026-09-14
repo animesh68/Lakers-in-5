@@ -1,9 +1,19 @@
 # ==============================================================================
-# Lakers in 5 — Production Dockerfile
-# Multi-purpose slim image for FastAPI inference service & Streamlit monitoring dashboard
+# Lakers in 5 — Production Multi-Stage Dockerfile
+# Stage 1: Build React / Vite Frontend Dashboard
+# Stage 2: Python 3.11 Runtime for Unified FastAPI & Static UI Serving
 # ==============================================================================
 
-FROM python:3.11-slim as runtime
+# Stage 1: Build Frontend UI
+FROM node:20-slim AS frontend-builder
+WORKDIR /app/frontend
+COPY frontend/package*.json ./
+RUN npm install
+COPY frontend/ ./
+RUN npm run build
+
+# Stage 2: Python Production Runtime
+FROM python:3.11-slim AS runtime
 
 # Set environment variables for Python runtime
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -35,6 +45,9 @@ COPY --chown=appuser:appgroup models/ /app/models/
 COPY --chown=appuser:appgroup data/processed/ /app/data/processed/
 COPY --chown=appuser:appgroup data/features/ /app/data/features/
 COPY --chown=appuser:appgroup configs/ /app/configs/
+
+# Copy built frontend assets from Stage 1 into /app/frontend/dist
+COPY --from=frontend-builder --chown=appuser:appgroup /app/frontend/dist /app/frontend/dist
 
 # Create runtime directory for logs and predictions/monitoring if using fallback storage
 RUN mkdir -p /app/logs /app/data/monitoring && chown -R appuser:appgroup /app/logs /app/data/monitoring

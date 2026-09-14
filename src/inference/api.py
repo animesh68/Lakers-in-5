@@ -8,6 +8,7 @@ import os
 from typing import Optional, List, Dict, Any
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from src.inference.schemas import (
     GamePredictionRequest,
@@ -288,3 +289,12 @@ def get_retraining_decision_endpoint(window: str = Query("season", pattern="^(7d
     except Exception as e:
         logger.error(f"Retraining decision endpoint failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==============================================================================
+# FRONTEND STATIC ASSETS MOUNT
+# ==============================================================================
+frontend_dist_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "frontend", "dist")
+if os.path.exists(frontend_dist_dir):
+    app.mount("/", StaticFiles(directory=frontend_dist_dir, html=True), name="frontend")
+

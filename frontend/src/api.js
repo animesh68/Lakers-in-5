@@ -2,7 +2,7 @@
  * API Client for Lakers in 5 FastAPI Serving Layer
  */
 
-const DEFAULT_API_URL = import.meta.env.VITE_API_URL || "https://lakers-in-5.onrender.com";
+const DEFAULT_API_URL = import.meta.env.VITE_API_URL || "";
 
 export function getStoredApiUrl() {
   return localStorage.getItem("lakers_api_url") || DEFAULT_API_URL;
