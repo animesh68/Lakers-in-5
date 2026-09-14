@@ -58,3 +58,11 @@ data/monitoring/*
 .idea/
 .DS_Store
 Thumbs.db
+
+# Frontend & Node.js
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+.vercel/
+

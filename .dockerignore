@@ -46,3 +46,9 @@ Thumbs.db
 # Notebooks
 *.ipynb
 .ipynb_checkpoints
+
+# Frontend (Hosted separately on Vercel)
+frontend/
+node_modules/
+dist/
+
