@@ -27,18 +27,20 @@ def setup_logger(name: str = "lakers_in_5", log_file: Optional[str] = None, leve
     logger.addHandler(console_handler)
 
     # File Handler
-    if log_file is None:
-        log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "logs")
-        os.makedirs(log_dir, exist_ok=True)
-        log_file = os.path.join(log_dir, "ingestion.log")
-
     try:
-        os.makedirs(os.path.dirname(os.path.abspath(log_file)), exist_ok=True)
+        if log_file is None:
+            log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "logs")
+            os.makedirs(log_dir, exist_ok=True)
+            log_file = os.path.join(log_dir, "ingestion.log")
+        else:
+            os.makedirs(os.path.dirname(os.path.abspath(log_file)), exist_ok=True)
+
         file_handler = logging.FileHandler(log_file, encoding="utf-8")
         file_handler.setLevel(level)
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
     except Exception as e:
+        # Gracefully log to standard output if log file creation is not permitted (e.g. read-only container root)
         logger.warning(f"Could not initialize file logger at {log_file}: {e}")
 
     return logger

@@ -36,8 +36,8 @@ COPY --chown=appuser:appgroup data/processed/ /app/data/processed/
 COPY --chown=appuser:appgroup data/features/ /app/data/features/
 COPY --chown=appuser:appgroup configs/ /app/configs/
 
-# Create runtime directory for predictions/monitoring if using fallback storage
-RUN mkdir -p /app/data/monitoring && chown -R appuser:appgroup /app/data/monitoring
+# Create runtime directory for logs and predictions/monitoring if using fallback storage
+RUN mkdir -p /app/logs /app/data/monitoring && chown -R appuser:appgroup /app/logs /app/data/monitoring
 
 # Switch to non-root user
 USER appuser
