@@ -1,0 +1,494 @@
+{
+  "dataset_info": {
+    "total_rows": 73279,
+    "total_columns": 61,
+    "earliest_game": "1946-11-26 00:00:00",
+    "latest_game": "2026-06-13 00:00:00",
+    "created_at": "2026-09-09T14:06:25Z",
+    "temporal_constraint": "Strictly pregame: source_game_date < target_game_date"
+  },
+  "targets": {
+    "target_home_win": {
+      "type": "binary_classification_target",
+      "definition": "1 if homeScore > awayScore else 0",
+      "uses_current_game": true,
+      "is_feature": false
+    },
+    "target_point_margin": {
+      "type": "regression_target",
+      "definition": "homeScore - awayScore",
+      "uses_current_game": true,
+      "is_feature": false
+    }
+  },
+  "features": {
+    "home_win_pct_5": {
+      "side": "Home",
+      "lookback_games": 5,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 898
+    },
+    "away_win_pct_5": {
+      "side": "Away",
+      "lookback_games": 5,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 800
+    },
+    "home_avg_points_5": {
+      "side": "Home",
+      "lookback_games": 5,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 898
+    },
+    "away_avg_points_5": {
+      "side": "Away",
+      "lookback_games": 5,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 800
+    },
+    "home_avg_points_allowed_5": {
+      "side": "Home",
+      "lookback_games": 5,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 898
+    },
+    "away_avg_points_allowed_5": {
+      "side": "Away",
+      "lookback_games": 5,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 800
+    },
+    "home_point_diff_5": {
+      "side": "Home",
+      "lookback_games": 5,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 898
+    },
+    "away_point_diff_5": {
+      "side": "Away",
+      "lookback_games": 5,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 800
+    },
+    "home_win_pct_10": {
+      "side": "Home",
+      "lookback_games": 10,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 898
+    },
+    "away_win_pct_10": {
+      "side": "Away",
+      "lookback_games": 10,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 800
+    },
+    "home_avg_points_10": {
+      "side": "Home",
+      "lookback_games": 10,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 898
+    },
+    "away_avg_points_10": {
+      "side": "Away",
+      "lookback_games": 10,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 800
+    },
+    "home_avg_points_allowed_10": {
+      "side": "Home",
+      "lookback_games": 10,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 898
+    },
+    "away_avg_points_allowed_10": {
+      "side": "Away",
+      "lookback_games": 10,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 800
+    },
+    "home_point_diff_10": {
+      "side": "Home",
+      "lookback_games": 10,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 898
+    },
+    "away_point_diff_10": {
+      "side": "Away",
+      "lookback_games": 10,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 800
+    },
+    "home_off_rating_5": {
+      "side": "Home",
+      "lookback_games": 5,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 33842
+    },
+    "away_off_rating_5": {
+      "side": "Away",
+      "lookback_games": 5,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 33825
+    },
+    "home_def_rating_5": {
+      "side": "Home",
+      "lookback_games": 5,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 33842
+    },
+    "away_def_rating_5": {
+      "side": "Away",
+      "lookback_games": 5,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 33825
+    },
+    "home_efg_5": {
+      "side": "Home",
+      "lookback_games": 5,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 33842
+    },
+    "away_efg_5": {
+      "side": "Away",
+      "lookback_games": 5,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 33825
+    },
+    "home_ts_5": {
+      "side": "Home",
+      "lookback_games": 5,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 33842
+    },
+    "away_ts_5": {
+      "side": "Away",
+      "lookback_games": 5,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 33825
+    },
+    "home_pace_5": {
+      "side": "Home",
+      "lookback_games": 5,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 33842
+    },
+    "away_pace_5": {
+      "side": "Away",
+      "lookback_games": 5,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 33825
+    },
+    "home_off_rating_10": {
+      "side": "Home",
+      "lookback_games": 10,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 33842
+    },
+    "away_off_rating_10": {
+      "side": "Away",
+      "lookback_games": 10,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 33825
+    },
+    "home_def_rating_10": {
+      "side": "Home",
+      "lookback_games": 10,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 33842
+    },
+    "away_def_rating_10": {
+      "side": "Away",
+      "lookback_games": 10,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 33825
+    },
+    "home_efg_10": {
+      "side": "Home",
+      "lookback_games": 10,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 33842
+    },
+    "away_efg_10": {
+      "side": "Away",
+      "lookback_games": 10,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 33825
+    },
+    "home_ts_10": {
+      "side": "Home",
+      "lookback_games": 10,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 33842
+    },
+    "away_ts_10": {
+      "side": "Away",
+      "lookback_games": 10,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 33825
+    },
+    "home_pace_10": {
+      "side": "Home",
+      "lookback_games": 10,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 33842
+    },
+    "away_pace_10": {
+      "side": "Away",
+      "lookback_games": 10,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 33825
+    },
+    "home_elo": {
+      "side": "Home",
+      "lookback_games": null,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 0
+    },
+    "away_elo": {
+      "side": "Away",
+      "lookback_games": null,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 0
+    },
+    "elo_difference": {
+      "side": "Matchup",
+      "lookback_games": null,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 0
+    },
+    "home_rest_days": {
+      "side": "Home",
+      "lookback_games": null,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 898
+    },
+    "away_rest_days": {
+      "side": "Away",
+      "lookback_games": null,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 800
+    },
+    "rest_difference": {
+      "side": "Matchup",
+      "lookback_games": null,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 1022
+    },
+    "home_back_to_back": {
+      "side": "Home",
+      "lookback_games": null,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 0
+    },
+    "away_back_to_back": {
+      "side": "Away",
+      "lookback_games": null,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 0
+    },
+    "home_games_last_7": {
+      "side": "Home",
+      "lookback_games": 7,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 0
+    },
+    "away_games_last_7": {
+      "side": "Away",
+      "lookback_games": 7,
+      "description": "Rolling pregame metric",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 0
+    },
+    "home_rotation_points_5": {
+      "side": "Home",
+      "lookback_games": 5,
+      "description": "Canonical pregame roster rotation (avg of players with >=10 MPG on team in last 5 games before tip-off, no target game participation leakage)",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 7385
+    },
+    "away_rotation_points_5": {
+      "side": "Away",
+      "lookback_games": 5,
+      "description": "Canonical pregame roster rotation (avg of players with >=10 MPG on team in last 5 games before tip-off, no target game participation leakage)",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 7306
+    },
+    "home_rotation_ts_5": {
+      "side": "Home",
+      "lookback_games": 5,
+      "description": "Canonical pregame roster rotation (avg of players with >=10 MPG on team in last 5 games before tip-off, no target game participation leakage)",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 37556
+    },
+    "away_rotation_ts_5": {
+      "side": "Away",
+      "lookback_games": 5,
+      "description": "Canonical pregame roster rotation (avg of players with >=10 MPG on team in last 5 games before tip-off, no target game participation leakage)",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 37507
+    },
+    "home_rotation_usage_5": {
+      "side": "Home",
+      "lookback_games": 5,
+      "description": "Canonical pregame roster rotation (avg of players with >=10 MPG on team in last 5 games before tip-off, no target game participation leakage)",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 37556
+    },
+    "away_rotation_usage_5": {
+      "side": "Away",
+      "lookback_games": 5,
+      "description": "Canonical pregame roster rotation (avg of players with >=10 MPG on team in last 5 games before tip-off, no target game participation leakage)",
+      "uses_current_game": false,
+      "temporal_rule": "source_game_date < target_game_date",
+      "missing_value_policy": "NaN preserved for cold starts / early season games",
+      "null_count": 37507
+    }
+  }
+}

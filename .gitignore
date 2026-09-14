@@ -42,16 +42,21 @@ data/raw/*
 !data/raw/**/.gitkeep
 data/processed/*
 !data/processed/.gitkeep
+!data/processed/parquet/
+!data/processed/parquet/*.parquet
+
 data/features/*
 !data/features/.gitkeep
+!data/features/*.parquet
+!data/features/feature_metadata.json
 data/evaluation/*
 !data/evaluation/.gitkeep
 data/monitoring/*
 !data/monitoring/.gitkeep
-*.parquet
 *.duckdb
 *.db
 *.sqlite3
+
 
 # IDE and OS Metadata
 .vscode/
