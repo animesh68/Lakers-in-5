@@ -83,7 +83,11 @@ class DataDriftDetector:
         """Loads and caches reference historical feature distributions."""
         if self._reference_df is None:
             if os.path.exists(self.ref_path):
-                df = pd.read_parquet(self.ref_path)
+                cols_to_load = list(set(["season"] + [c for c in MODEL_FEATURE_CONTRACT]))
+                try:
+                    df = pd.read_parquet(self.ref_path, columns=cols_to_load)
+                except Exception:
+                    df = pd.read_parquet(self.ref_path)
                 # Filter to development seasons (e.g., 2015-2024)
                 dev_df = df[df["season"].isin(range(2015, 2025))]
                 if dev_df.empty:

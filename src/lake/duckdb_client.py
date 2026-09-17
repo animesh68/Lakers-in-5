@@ -19,6 +19,9 @@ class DuckDBClient:
         self.parquet_dir = parquet_dir or os.path.join(base_dir, "data", "processed", "parquet")
         self.database_file = database_file # None for in-memory
         self.conn = duckdb.connect(database=self.database_file or ":memory:")
+        # Enforce memory safety limits and thread constraints for container environments
+        self.conn.execute("SET memory_limit = '128MB'")
+        self.conn.execute("SET threads = 1")
         self._register_views()
 
     def _register_views(self):
