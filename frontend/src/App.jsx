@@ -55,6 +55,15 @@ const NBA_TEAMS = [
   { code: 'WAS', name: 'Washington Wizards' },
 ];
 
+const getTeamCode = (nameOrCode) => {
+  if (!nameOrCode) return 'LAL';
+  const match = NBA_TEAMS.find(t => 
+    t.code.toUpperCase() === String(nameOrCode).toUpperCase() || 
+    t.name.toLowerCase() === String(nameOrCode).toLowerCase()
+  );
+  return match ? match.code : nameOrCode;
+};
+
 export default function App() {
   const [activeTab, setActiveTab] = useState('lakers'); // 'lakers' | 'predict' | 'schedule' | 'mlops' | 'settings'
   const [apiUrl, setApiUrl] = useState(getStoredApiUrl());
@@ -126,7 +135,7 @@ export default function App() {
     setSchedError(null);
     try {
       const data = await api.getSchedule('2026-27', schedTeam, schedLimit);
-      setSchedGames(data);
+      setSchedGames(data || []);
     } catch (err) {
       setSchedError(err.message);
     } finally {
@@ -140,7 +149,7 @@ export default function App() {
     }
   }, [activeTab, schedTeam, schedLimit, apiUrl]);
 
-  // Load MLOps
+  // Load MLOps Data
   const fetchMlopsData = async () => {
     setMlopsLoading(true);
     setMlopsError(null);
@@ -173,6 +182,14 @@ export default function App() {
       setSimError("Home team and Away team must be different.");
       return;
     }
+    if (!simDate) {
+      setSimError("Please select a valid game date.");
+      return;
+    }
+    if (simDate < '2026-10-01' || simDate > '2027-06-30') {
+      setSimError("Game date must be within the 2026-27 season (2026-10-01 to 2027-06-30).");
+      return;
+    }
     setSimLoading(true);
     setSimError(null);
     setSimResult(null);
@@ -180,16 +197,18 @@ export default function App() {
       const data = await api.predictMatchup(simHome, simAway, simDate, simPersist);
       setSimResult(data);
     } catch (err) {
-      setSimError(err.message);
+      setSimError(err.message || "Prediction service unavailable. Please try again.");
     } finally {
       setSimLoading(false);
     }
   };
 
   const handleQuickPredict = (game) => {
-    setSimHome(game.home_team);
-    setSimAway(game.away_team);
+    setSimHome(getTeamCode(game.home_team));
+    setSimAway(getTeamCode(game.away_team));
     setSimDate(game.game_date);
+    setSimResult(null);
+    setSimError(null);
     setActiveTab('predict');
   };
 
@@ -610,70 +629,136 @@ export default function App() {
               </form>
 
               {/* Simulation Output Card */}
-              {simResult ? (
-                <div className="glass-panel glass-panel-glow" style={{ padding: '32px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '16px', marginBottom: '24px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span className="badge badge-gold">Forecast Result</span>
-                      <span className="mono" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{simResult.game_date}</span>
-                    </div>
-                    <span className="badge badge-success">
-                      <CheckCircle2 size={13} /> Persisted
-                    </span>
-                  </div>
+              {simResult ? (() => {
+                const homeProb = Number(simResult.home_win_probability ?? 0.5);
+                const awayProb = Number(simResult.away_win_probability ?? (1 - homeProb));
+                const margin = Number(simResult.predicted_home_margin ?? simResult.predicted_margin ?? 0);
+                const isLakersMatchup = Boolean(
+                  simResult.home_team_id === "1610612747" || 
+                  simResult.away_team_id === "1610612747" || 
+                  simResult.home_team?.includes("Lakers") || 
+                  simResult.away_team?.includes("Lakers")
+                );
+                const isLakersHome = Boolean(
+                  simResult.home_team_id === "1610612747" || 
+                  simResult.home_team?.includes("Lakers")
+                );
+                const lakersProb = isLakersHome ? homeProb : awayProb;
+                const lakersMargin = isLakersHome ? margin : -margin;
 
-                  {/* Matchup Banner */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', textAlign: 'center', gap: '20px', marginBottom: '28px' }}>
-                    <div>
-                      <div style={{ fontSize: '2rem', fontWeight: 900, color: '#FDB927' }}>{simResult.home_team}</div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Home</div>
-                      <div style={{ fontSize: '1.5rem', fontWeight: 800, marginTop: '8px' }}>
-                        {(simResult.home_win_probability * 100).toFixed(1)}%
+                return (
+                  <div className="glass-panel glass-panel-glow" style={{ padding: '32px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '16px', marginBottom: '24px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span className="badge badge-gold">Forecast Result</span>
+                        <span className="mono" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{simResult.game_date}</span>
+                      </div>
+                      {simResult.prediction_id ? (
+                        <span className="badge badge-success">
+                          <CheckCircle2 size={13} /> Persisted
+                        </span>
+                      ) : (
+                        <span className="badge badge-purple">
+                          Transient Simulation
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Lakers Perspective Banner */}
+                    {isLakersMatchup && (
+                      <div style={{ 
+                        background: 'linear-gradient(135deg, rgba(85, 37, 130, 0.35), rgba(253, 185, 39, 0.15))', 
+                        border: '1px solid rgba(253, 185, 39, 0.3)', 
+                        borderRadius: 'var(--radius-md)', 
+                        padding: '14px 18px', 
+                        marginBottom: '20px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                      }}>
+                        <div>
+                          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#FDB927', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            🌟 Lakers Perspective ({isLakersHome ? 'Home' : 'Road'})
+                          </div>
+                          <div style={{ fontSize: '1.05rem', fontWeight: 800, marginTop: '2px' }}>
+                            Win Probability: {(lakersProb * 100).toFixed(1)}% | Projected Margin: {lakersMargin >= 0 ? `+${lakersMargin.toFixed(1)}` : lakersMargin.toFixed(1)} pts
+                          </div>
+                        </div>
+                        <span className="badge badge-gold" style={{ fontSize: '0.75rem' }}>
+                          {lakersProb >= 0.5 ? 'Lakers Favored' : 'Underdog Matchup'}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Matchup Banner */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', textAlign: 'center', gap: '20px', marginBottom: '28px' }}>
+                      <div>
+                        <div style={{ fontSize: '2rem', fontWeight: 900, color: '#FDB927' }}>{simResult.home_team}</div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Home</div>
+                        <div style={{ fontSize: '1.5rem', fontWeight: 800, marginTop: '8px' }}>
+                          {(homeProb * 100).toFixed(1)}%
+                        </div>
+                      </div>
+
+                      <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-muted)' }}>VS</div>
+
+                      <div>
+                        <div style={{ fontSize: '2rem', fontWeight: 900, color: '#94A3B8' }}>{simResult.away_team}</div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Away</div>
+                        <div style={{ fontSize: '1.5rem', fontWeight: 800, marginTop: '8px' }}>
+                          {(awayProb * 100).toFixed(1)}%
+                        </div>
                       </div>
                     </div>
 
-                    <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-muted)' }}>VS</div>
-
-                    <div>
-                      <div style={{ fontSize: '2rem', fontWeight: 900, color: '#94A3B8' }}>{simResult.away_team}</div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Away</div>
-                      <div style={{ fontSize: '1.5rem', fontWeight: 800, marginTop: '8px' }}>
-                        {(simResult.away_win_probability * 100).toFixed(1)}%
-                      </div>
+                    {/* Probability Bar */}
+                    <div style={{ width: '100%', height: '12px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '6px', overflow: 'hidden', display: 'flex', marginBottom: '24px' }}>
+                      <div style={{ width: `${Math.round(homeProb * 100)}%`, background: 'var(--gold-primary)' }} />
+                      <div style={{ width: `${Math.round(awayProb * 100)}%`, background: '#64748B' }} />
                     </div>
-                  </div>
 
-                  {/* Probability Bar */}
-                  <div style={{ width: '100%', height: '12px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '6px', overflow: 'hidden', display: 'flex', marginBottom: '24px' }}>
-                    <div style={{ width: `${simResult.home_win_probability * 100}%`, background: 'var(--gold-primary)' }} />
-                    <div style={{ width: `${simResult.away_win_probability * 100}%`, background: '#64748B' }} />
-                  </div>
+                    {/* Metrics Box */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '24px' }}>
+                      <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Projected Margin (Home - Away)</div>
+                        <div style={{ fontSize: '1.4rem', fontWeight: 800, marginTop: '4px', color: margin >= 0 ? '#34d399' : '#fb7185' }}>
+                          {margin >= 0 ? `+${margin.toFixed(1)} pts` : `${margin.toFixed(1)} pts`}
+                        </div>
+                      </div>
 
-                  {/* Metrics Box */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '24px' }}>
-                    <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Projected Margin (Home - Away)</div>
-                      <div style={{ fontSize: '1.4rem', fontWeight: 800, marginTop: '4px', color: simResult.predicted_margin >= 0 ? '#34d399' : '#fb7185' }}>
-                        {simResult.predicted_margin >= 0 ? `+${simResult.predicted_margin.toFixed(1)} pts` : `${simResult.predicted_margin.toFixed(1)} pts`}
+                      <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Model Confidence</div>
+                        <div style={{ fontSize: '1.4rem', fontWeight: 800, marginTop: '4px', color: '#00F0FF' }}>
+                          {Math.abs(homeProb - 0.5) > 0.15 ? 'High Confidence' : 'Contested Matchup'}
+                        </div>
                       </div>
                     </div>
 
-                    <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Model Confidence</div>
-                      <div style={{ fontSize: '1.4rem', fontWeight: 800, marginTop: '4px', color: '#00F0FF' }}>
-                        {Math.abs(simResult.home_win_probability - 0.5) > 0.15 ? 'High Confidence' : 'Contested Matchup'}
+                    {/* Metadata Footer */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ background: 'rgba(0, 0, 0, 0.3)', padding: '10px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Model Version:</span>
+                        <span style={{ fontSize: '0.75rem', color: '#FFFFFF' }}>{simResult.model_version}</span>
                       </div>
+                      <div style={{ background: 'rgba(0, 0, 0, 0.3)', padding: '10px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Feature Schema:</span>
+                        <span style={{ fontSize: '0.75rem', color: '#FFFFFF' }}>{simResult.feature_schema_version || 'v1'} (52 Features)</span>
+                      </div>
+                      <div style={{ background: 'rgba(0, 0, 0, 0.3)', padding: '10px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Feature Snapshot Hash:</span>
+                        <span className="mono" style={{ fontSize: '0.75rem', color: '#FDB927' }}>{simResult.feature_snapshot_hash}</span>
+                      </div>
+                      {simResult.feature_timestamp && (
+                        <div style={{ background: 'rgba(0, 0, 0, 0.3)', padding: '10px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Prediction Timestamp:</span>
+                          <span className="mono" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{simResult.feature_timestamp}</span>
+                        </div>
+                      )}
                     </div>
-                  </div>
 
-                  {/* Feature Snapshot Hash */}
-                  <div style={{ background: 'rgba(0, 0, 0, 0.3)', padding: '12px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Feature Snapshot Hash:</span>
-                    <span className="mono" style={{ fontSize: '0.75rem', color: '#FDB927' }}>{simResult.feature_snapshot_hash}</span>
                   </div>
-
-                </div>
-              ) : (
+                );
+              })() : (
                 <div className="glass-panel" style={{ padding: '60px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                   <Cpu size={48} style={{ color: 'var(--purple-light)', marginBottom: '16px', opacity: 0.6 }} />
                   <h3 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '8px' }}>Ready to Simulate</h3>

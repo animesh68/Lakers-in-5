@@ -45,6 +45,7 @@ class GamePredictionResponse(BaseModel):
     home_win_probability: float = Field(description="Calibrated probability of home team winning (0.0 to 1.0)")
     away_win_probability: float = Field(description="Calibrated probability of away team winning (0.0 to 1.0)")
     predicted_home_margin: float = Field(description="Predicted point margin from home team perspective (homeScore - awayScore)")
+    predicted_margin: Optional[float] = Field(default=None, description="Convenience alias for predicted_home_margin")
     model_version: str
     classifier_name: str
     regressor_name: str

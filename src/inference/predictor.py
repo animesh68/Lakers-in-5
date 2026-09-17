@@ -100,6 +100,9 @@ class GamePredictor:
         """
         home_info = normalize_team(home_team)
         away_info = normalize_team(away_team)
+        if home_info["id"] == away_info["id"]:
+            raise ValueError("Home team and away team must be distinct NBA teams.")
+            
         date_str = str(game_date)[:10]
         
         # 1. Generate strictly pregame feature vector
@@ -161,6 +164,7 @@ class GamePredictor:
             home_win_probability=p_home_win,
             away_win_probability=p_away_win,
             predicted_home_margin=pred_margin,
+            predicted_margin=pred_margin,
             model_version=self.model_version,
             classifier_name=self.clf_label,
             regressor_name=self.reg_label,

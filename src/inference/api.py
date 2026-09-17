@@ -6,6 +6,7 @@ drift detection, model health diagnostic, and retraining advisory decisions.
 
 import os
 from typing import Optional, List, Dict, Any
+from datetime import date, datetime
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -129,6 +130,16 @@ def predict_game_endpoint(request: GamePredictionRequest):
     """
     Generates pregame win probability and predicted point margin for any arbitrary NBA matchup.
     """
+    if request.home_team.strip().upper() == request.away_team.strip().upper():
+        raise HTTPException(
+            status_code=400,
+            detail="Home team and away team must be distinct NBA teams."
+        )
+    if request.game_date < date(2026, 10, 1) or request.game_date > date(2027, 6, 30):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Target game date {request.game_date} is outside the supported 2026-27 season horizon (2026-10-01 to 2027-06-30)."
+        )
     try:
         predictor = get_predictor()
         response = predictor.predict_game(
@@ -140,6 +151,9 @@ def predict_game_endpoint(request: GamePredictionRequest):
             persist=request.persist
         )
         return response
+    except ValueError as ve:
+        logger.warning(f"Validation error for matchup prediction: {ve}")
+        raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         logger.error(f"Prediction failed for {request.away_team} at {request.home_team}: {e}")
         raise HTTPException(status_code=400, detail=str(e))
