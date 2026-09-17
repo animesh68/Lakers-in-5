@@ -19,7 +19,7 @@ from src.inference.schemas import (
     HealthReportResponse,
     RetrainingDecisionResponse,
 )
-from src.inference.schedule_service import ScheduleService
+from src.inference.schedule_service import ScheduleService, normalize_team
 from src.inference.predictor import GamePredictor
 from src.monitoring.repository import PredictionRepository
 from src.monitoring.metrics import MonitoringMetricsService
@@ -60,7 +60,10 @@ def get_repository() -> PredictionRepository:
 def get_predictor() -> GamePredictor:
     global _predictor
     if _predictor is None:
-        _predictor = GamePredictor(repository=get_repository())
+        _predictor = GamePredictor(
+            repository=get_repository(),
+            schedule_service=get_schedule_service()
+        )
     return _predictor
 
 def get_schedule_service() -> ScheduleService:
@@ -128,25 +131,39 @@ def health_check():
 @app.post("/predict", response_model=GamePredictionResponse, summary="Predict Game Outcome")
 def predict_game_endpoint(request: GamePredictionRequest):
     """
-    Generates pregame win probability and predicted point margin for any arbitrary NBA matchup.
+    Generates pregame win probability and predicted point margin for an official 2026-27 NBA matchup.
+    Validates team identifiers and ensures the matchup exists on the official schedule.
     """
-    if request.home_team.strip().upper() == request.away_team.strip().upper():
+    # 1. Team Canonicalization & Distinctness Validation
+    try:
+        home_info = normalize_team(request.home_team)
+        away_info = normalize_team(request.away_team)
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+
+    if home_info["id"] == away_info["id"]:
         raise HTTPException(
             status_code=400,
             detail="Home team and away team must be distinct NBA teams."
         )
-    if request.game_date < date(2026, 10, 1) or request.game_date > date(2027, 6, 30):
+
+    # 2. Schedule-Backed Validation
+    schedule_service = get_schedule_service()
+    scheduled_game = schedule_service.find_game(request.home_team, request.away_team, str(request.game_date))
+    if not scheduled_game:
         raise HTTPException(
             status_code=400,
-            detail=f"Target game date {request.game_date} is outside the supported 2026-27 season horizon (2026-10-01 to 2027-06-30)."
+            detail=f"No scheduled 2026-27 game exists for {home_info['code']} vs {away_info['code']} on {request.game_date}."
         )
+
     try:
         predictor = get_predictor()
+        game_id_str = str(scheduled_game["game_num"]) if scheduled_game.get("game_num") is not None else None
         response = predictor.predict_game(
-            home_team=request.home_team,
-            away_team=request.away_team,
+            home_team=home_info["name"],
+            away_team=away_info["name"],
             game_date=str(request.game_date),
-            game_id=request.game_id,
+            game_id=game_id_str,
             include_features=False,
             persist=request.persist
         )
@@ -190,6 +207,22 @@ def predict_game_by_id_endpoint(
     except Exception as e:
         logger.error(f"Prediction by game_id {game_id} failed: {e}")
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.get("/schedule/matchup", response_model=List[ScheduledGame], summary="Query Scheduled Games for Matchup")
+def get_matchup_schedule_endpoint(
+    home_team: str = Query(..., description="Home team identifier (e.g. LAL, Lakers)"),
+    away_team: str = Query(..., description="Away team identifier (e.g. GSW, Warriors)")
+):
+    """
+    Queries all official 2026-27 scheduled games between the specified home and away teams.
+    """
+    try:
+        schedule = get_schedule_service()
+        games = schedule.get_matchup_games(home_team_str=home_team, away_team_str=away_team)
+        return games
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.get("/schedule/2026-27", response_model=List[ScheduledGame], summary="Query 2026-27 Schedule")

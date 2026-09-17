@@ -93,6 +93,14 @@ export const api = {
     return request(`/schedule/${season}?${params.toString()}`);
   },
 
+  getMatchupSchedule: async (homeTeam, awayTeam) => {
+    const params = new URLSearchParams({
+      home_team: homeTeam,
+      away_team: awayTeam
+    });
+    return request(`/schedule/matchup?${params.toString()}`);
+  },
+
   getMonitoringHealth: async (window = "30d") => {
     return request(`/monitoring/health?window=${window}`);
   },

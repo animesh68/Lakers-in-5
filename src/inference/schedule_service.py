@@ -111,8 +111,8 @@ class ScheduleService:
                 for line in text.split("\n"):
                     lines.append(line.strip())
                     
-        # Regex to parse game rows e.g. "5 Wed. 10/21/26 Golden State at LA Lakers 7:00 PM 10:00 PM ESPN"
-        pattern = re.compile(r"^(\d+)\s+([A-Za-z]+\.?)\s+(\d{1,2}/\d{1,2}/\d{2,4})\s+(.+?)\s+at\s+(.+?)\s+(\d{1,2}:\d{2}\s+[AP]M)")
+        # Regex to parse game rows e.g. "5 Wed. 10/21/26 Golden State at LA Lakers 7:00 PM 10:00 PM ESPN" or neutral site "vs"
+        pattern = re.compile(r"^(\d+)\s+([A-Za-z]+\.?)\s+(\d{1,2}/\d{1,2}/\d{2,4})\s+(.+?)\s+(?:at|vs)\s+(.+?)\s+(\d{1,2}:\d{2}\s+[AP]M)")
         parsed_games = []
         
         for line in lines:
@@ -184,3 +184,34 @@ class ScheduleService:
             
         team_games = df[mask].sort_values(by=["game_date", "game_num"])
         return team_games.to_dict(orient="records")
+
+    def get_matchup_games(self, home_team_str: str, away_team_str: str) -> List[Dict[str, Any]]:
+        """Retrieves all scheduled games between home_team (as host) and away_team (as visitor)."""
+        home_info = normalize_team(home_team_str)
+        away_info = normalize_team(away_team_str)
+        df = self.load_schedule()
+        
+        mask = (df["home_team_id"] == home_info["id"]) & (df["away_team_id"] == away_info["id"])
+        matchup_games = df[mask].sort_values(by=["game_date", "game_num"])
+        return matchup_games.to_dict(orient="records")
+
+    def find_game(self, home_team_str: str, away_team_str: str, game_date_str: str) -> Optional[Dict[str, Any]]:
+        """Finds an official scheduled 2026-27 game matching home team, away team, and game date."""
+        try:
+            home_info = normalize_team(home_team_str)
+            away_info = normalize_team(away_team_str)
+        except ValueError:
+            return None
+            
+        df = self.load_schedule()
+        clean_date = str(game_date_str).strip()
+        mask = (
+            (df["home_team_id"] == home_info["id"]) & 
+            (df["away_team_id"] == away_info["id"]) & 
+            (df["game_date"] == clean_date)
+        )
+        matches = df[mask]
+        if len(matches) == 0:
+            return None
+        return matches.iloc[0].to_dict()
+

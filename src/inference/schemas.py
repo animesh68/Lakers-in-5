@@ -88,6 +88,8 @@ class ScheduledGame(BaseModel):
     away_team: str
     home_team_id: str
     away_team_id: str
+    home_team_code: Optional[str] = None
+    away_team_code: Optional[str] = None
     game_time: Optional[str] = None
     is_lakers_game: bool = False
 

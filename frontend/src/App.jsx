@@ -80,6 +80,9 @@ export default function App() {
   const [simLoading, setSimLoading] = useState(false);
   const [simResult, setSimResult] = useState(null);
   const [simError, setSimError] = useState(null);
+  const [matchupGames, setMatchupGames] = useState([]);
+  const [matchupLoading, setMatchupLoading] = useState(false);
+  const [matchupFetchError, setMatchupFetchError] = useState(null);
 
   // Schedule State
   const [schedTeam, setSchedTeam] = useState('LAL');
@@ -175,6 +178,46 @@ export default function App() {
     }
   }, [activeTab, apiUrl]);
 
+  // Fetch scheduled games whenever selected matchup teams change
+  useEffect(() => {
+    let isMounted = true;
+    if (!simHome || !simAway || simHome === simAway) {
+      setMatchupGames([]);
+      setMatchupFetchError(null);
+      return;
+    }
+
+    const fetchMatchupDates = async () => {
+      setMatchupLoading(true);
+      setMatchupFetchError(null);
+      try {
+        const games = await api.getMatchupSchedule(simHome, simAway);
+        if (isMounted) {
+          const list = games || [];
+          setMatchupGames(list);
+          if (list.length > 0) {
+            const dates = list.map(g => g.game_date);
+            if (!dates.includes(simDate)) {
+              setSimDate(list[0].game_date);
+            }
+          } else {
+            setSimDate('');
+          }
+        }
+      } catch (err) {
+        if (isMounted) {
+          setMatchupFetchError(err.message);
+          setMatchupGames([]);
+        }
+      } finally {
+        if (isMounted) setMatchupLoading(false);
+      }
+    };
+
+    fetchMatchupDates();
+    return () => { isMounted = false; };
+  }, [simHome, simAway, apiUrl]);
+
   // Handle Custom Simulation Submit
   const handleSimulate = async (e) => {
     e?.preventDefault();
@@ -183,11 +226,12 @@ export default function App() {
       return;
     }
     if (!simDate) {
-      setSimError("Please select a valid game date.");
+      setSimError("Please select a valid scheduled game date.");
       return;
     }
-    if (simDate < '2026-10-01' || simDate > '2027-06-30') {
-      setSimError("Game date must be within the 2026-27 season (2026-10-01 to 2027-06-30).");
+    const scheduledDates = matchupGames.map(g => g.game_date);
+    if (matchupGames.length > 0 && !scheduledDates.includes(simDate)) {
+      setSimError(`No scheduled 2026-27 game exists for ${simHome} vs ${simAway} on ${simDate}.`);
       return;
     }
     setSimLoading(true);
@@ -583,17 +627,44 @@ export default function App() {
                   </select>
                 </div>
 
-                {/* Date Input */}
+                {/* Schedule-Backed Date Selector */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: 600 }}>
-                    Game Date (2026-27 Season)
-                  </label>
-                  <input 
-                    type="date"
-                    value={simDate}
-                    onChange={(e) => setSimDate(e.target.value)}
-                    style={{ width: '100%', padding: '12px 14px', borderRadius: 'var(--radius-md)', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid var(--border-subtle)', color: '#FFFFFF', fontSize: '0.95rem', outline: 'none' }}
-                  />
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                      Scheduled Game Date (2026-27 Season)
+                    </label>
+                    {matchupLoading && (
+                      <span style={{ fontSize: '0.75rem', color: '#FDB927', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <RefreshCw size={12} className="spin" /> Verifying schedule...
+                      </span>
+                    )}
+                  </div>
+
+                  {simHome === simAway ? (
+                    <div style={{ padding: '12px 14px', borderRadius: 'var(--radius-md)', background: 'rgba(255, 255, 255, 0.03)', border: '1px dashed var(--border-subtle)', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                      Select two different teams to view scheduled games.
+                    </div>
+                  ) : matchupGames.length > 0 ? (
+                    <select
+                      value={simDate}
+                      onChange={(e) => setSimDate(e.target.value)}
+                      style={{ width: '100%', padding: '12px 14px', borderRadius: 'var(--radius-md)', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid var(--border-subtle)', color: '#FFFFFF', fontSize: '0.95rem', outline: 'none' }}
+                    >
+                      {matchupGames.map(game => (
+                        <option key={game.game_num} value={game.game_date} style={{ background: '#0e0a17', color: '#fff' }}>
+                          📅 {game.game_date} (Game #{game.game_num} • {game.game_time})
+                        </option>
+                      ))}
+                    </select>
+                  ) : !matchupLoading ? (
+                    <div style={{ padding: '12px 14px', borderRadius: 'var(--radius-md)', background: 'rgba(244, 63, 94, 0.1)', border: '1px solid rgba(244, 63, 94, 0.3)', color: '#fb7185', fontSize: '0.85rem' }}>
+                      ⚠️ No scheduled 2026-27 games found with {simHome} as host vs {simAway}. Try reversing the home/away teams.
+                    </div>
+                  ) : (
+                    <div style={{ padding: '12px 14px', borderRadius: 'var(--radius-md)', background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                      Loading schedule...
+                    </div>
+                  )}
                 </div>
 
                 {/* Persist Checkbox */}
@@ -614,7 +685,7 @@ export default function App() {
                 <button 
                   type="submit" 
                   className="btn btn-gold" 
-                  disabled={simLoading}
+                  disabled={simLoading || matchupLoading || simHome === simAway || (!matchupLoading && matchupGames.length === 0)}
                   style={{ width: '100%', padding: '14px', marginTop: '8px' }}
                 >
                   {simLoading ? <RefreshCw size={18} className="spin" /> : <Sparkles size={18} />}
