@@ -110,7 +110,7 @@ export default function MatchupPredictor({
               onClick={handleSwapTeams}
               className="btn btn-ghost"
               style={{ fontSize: '0.75rem', padding: '4px 8px' }}
-              title="Swap Host and Visitor"
+              title="Swap Home and Away Teams"
             >
               ⇄ Swap Teams
             </button>
@@ -119,7 +119,7 @@ export default function MatchupPredictor({
           {/* Home Team Selector */}
           <div>
             <label style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '6px', fontWeight: 600 }}>
-              Home Team (Host)
+              Home Team
             </label>
             <select
               value={simHome}
@@ -137,7 +137,7 @@ export default function MatchupPredictor({
           {/* Away Team Selector */}
           <div>
             <label style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '6px', fontWeight: 600 }}>
-              Away Team (Visitor)
+              Away Team
             </label>
             <select
               value={simAway}
@@ -284,7 +284,7 @@ export default function MatchupPredictor({
             }}>
               <div>
                 <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#FFFFFF' }}>{simResult.away_team}</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginTop: '2px' }}>Away Visitor</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginTop: '2px' }}>Away Team</div>
                 <div style={{ fontSize: '1.8rem', fontWeight: 900, fontFamily: 'var(--font-display)', marginTop: '8px', color: awayProb >= 0.5 ? 'var(--gold-primary)' : 'var(--text-secondary)' }}>
                   {(awayProb * 100).toFixed(1)}%
                 </div>
@@ -308,7 +308,7 @@ export default function MatchupPredictor({
 
               <div>
                 <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--gold-primary)' }}>{simResult.home_team}</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginTop: '2px' }}>Home Host</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginTop: '2px' }}>Home Team</div>
                 <div style={{ fontSize: '1.8rem', fontWeight: 900, fontFamily: 'var(--font-display)', marginTop: '8px', color: homeProb >= 0.5 ? 'var(--gold-primary)' : 'var(--text-secondary)' }}>
                   {(homeProb * 100).toFixed(1)}%
                 </div>
@@ -330,7 +330,7 @@ export default function MatchupPredictor({
             <div className="panel-subtle" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
-                  Projected Point Margin (Home Host Perspective)
+                  Projected Point Margin (Home Perspective)
                 </div>
                 <div style={{ fontSize: '1.3rem', fontWeight: 800, color: margin >= 0 ? 'var(--emerald-success)' : 'var(--rose-danger)', marginTop: '2px' }}>
                   {margin >= 0 ? `+${margin.toFixed(1)} points` : `${margin.toFixed(1)} points`}
@@ -375,7 +375,7 @@ export default function MatchupPredictor({
             <Sparkles size={32} color="var(--gold-primary)" style={{ opacity: 0.6, marginBottom: '14px' }} />
             <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>Ready to Predict Matchup</h3>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', maxWidth: '360px', margin: '6px auto 0' }}>
-              Choose a host team, visitor team, and scheduled game date, then click Generate Prediction.
+              Choose a home team, away team, and scheduled game date, then click Generate Prediction.
             </p>
           </div>
         )}

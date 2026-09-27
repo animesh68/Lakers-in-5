@@ -1,7 +1,7 @@
 import React from 'react';
-import { Flame, Swords, Calendar, Cpu, Settings } from 'lucide-react';
+import { Flame, Swords, Calendar, Cpu } from 'lucide-react';
 
-export default function Header({ activeTab, onTabChange, isOnline, onOpenSettings }) {
+export default function Header({ activeTab, onTabChange, isOnline }) {
   const tabs = [
     { id: 'forecast', label: 'Forecast', icon: Flame },
     { id: 'matchups', label: 'Matchups', icon: Swords },
@@ -102,7 +102,7 @@ export default function Header({ activeTab, onTabChange, isOnline, onOpenSetting
           })}
         </nav>
 
-        {/* Right Status & Actions */}
+        {/* Right Status */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           <div style={{
             display: 'flex',
@@ -123,15 +123,6 @@ export default function Header({ activeTab, onTabChange, isOnline, onOpenSetting
             />
             <span>{isOnline ? 'System Operational' : 'Offline'}</span>
           </div>
-
-          <button
-            onClick={onOpenSettings}
-            title="Settings & Connection"
-            className="btn btn-ghost"
-            style={{ padding: '8px', borderRadius: 'var(--radius-xs)' }}
-          >
-            <Settings size={17} />
-          </button>
         </div>
       </div>
     </header>

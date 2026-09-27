@@ -1,5 +1,5 @@
-import React from 'react';
-import { Calendar, Clock, Zap, RefreshCw, Filter } from 'lucide-react';
+import React, { useState } from 'react';
+import { Calendar, Clock, Zap, RefreshCw, Filter, ListFilter, ArrowRight } from 'lucide-react';
 import StatusBadge from './ui/StatusBadge';
 
 const NBA_TEAMS = [
@@ -45,6 +45,10 @@ export default function ScheduleTimeline({
   onLimitChange,
   onPredictGame
 }) {
+  const [viewMode, setViewMode] = useState('upcoming'); // 'upcoming' (short-horizon 5 games) | 'full'
+
+  const displayGames = viewMode === 'upcoming' ? games.slice(0, 5) : games;
+
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       {/* Title & Filter Bar */}
@@ -52,38 +56,83 @@ export default function ScheduleTimeline({
         <div>
           <h2 style={{ fontSize: '1.8rem', fontWeight: 800 }}>2026-27 NBA Schedule</h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '2px' }}>
-            Official regular season schedule — click Predict on any matchup to run pregame inference
+            {viewMode === 'upcoming' 
+              ? 'Upcoming short-horizon schedule — click Predict on any matchup to run pregame inference'
+              : 'Official regular season schedule records — filter by team and view full 80-game slate'}
           </p>
         </div>
 
-        {/* Filter Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Team:</span>
-            <select
-              value={selectedTeam}
-              onChange={(e) => onTeamChange(e.target.value)}
-              style={{ padding: '8px 12px', fontSize: '0.85rem' }}
+        {/* View Mode & Filter Controls */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <div style={{
+            display: 'flex',
+            background: 'rgba(255, 255, 255, 0.04)',
+            padding: '3px',
+            borderRadius: 'var(--radius-sm)',
+            border: '1px solid var(--border-subtle)'
+          }}>
+            <button
+              onClick={() => { setViewMode('upcoming'); onTeamChange('LAL'); }}
+              style={{
+                padding: '6px 14px',
+                borderRadius: 'var(--radius-xs)',
+                fontSize: '0.82rem',
+                fontWeight: viewMode === 'upcoming' ? 700 : 500,
+                border: 'none',
+                cursor: 'pointer',
+                background: viewMode === 'upcoming' ? 'var(--gold-primary)' : 'transparent',
+                color: viewMode === 'upcoming' ? '#0c0817' : 'var(--text-secondary)'
+              }}
             >
-              {NBA_TEAMS.map(t => (
-                <option key={t.code} value={t.code}>{t.name} ({t.code})</option>
-              ))}
-            </select>
+              Next 5 Games
+            </button>
+            <button
+              onClick={() => setViewMode('full')}
+              style={{
+                padding: '6px 14px',
+                borderRadius: 'var(--radius-xs)',
+                fontSize: '0.82rem',
+                fontWeight: viewMode === 'full' ? 700 : 500,
+                border: 'none',
+                cursor: 'pointer',
+                background: viewMode === 'full' ? 'var(--gold-primary)' : 'transparent',
+                color: viewMode === 'full' ? '#0c0817' : 'var(--text-secondary)'
+              }}
+            >
+              Full Season
+            </button>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Show:</span>
-            <select
-              value={limit}
-              onChange={(e) => onLimitChange(Number(e.target.value))}
-              style={{ padding: '8px 12px', fontSize: '0.85rem' }}
-            >
-              <option value={10}>10 games</option>
-              <option value={20}>20 games</option>
-              <option value={40}>40 games</option>
-              <option value={82}>Full Season</option>
-            </select>
-          </div>
+          {viewMode === 'full' && (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Team:</span>
+                <select
+                  value={selectedTeam}
+                  onChange={(e) => onTeamChange(e.target.value)}
+                  style={{ padding: '7px 12px', fontSize: '0.82rem' }}
+                >
+                  {NBA_TEAMS.map(t => (
+                    <option key={t.code} value={t.code}>{t.name} ({t.code})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Show:</span>
+                <select
+                  value={limit}
+                  onChange={(e) => onLimitChange(Number(e.target.value))}
+                  style={{ padding: '7px 12px', fontSize: '0.82rem' }}
+                >
+                  <option value={10}>10 games</option>
+                  <option value={20}>20 games</option>
+                  <option value={40}>40 games</option>
+                  <option value={82}>Full Season</option>
+                </select>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -98,13 +147,13 @@ export default function ScheduleTimeline({
           <div style={{ padding: '40px 20px', textAlign: 'center', color: '#fb7185', fontSize: '0.85rem' }}>
             Failed to load schedule: {error}
           </div>
-        ) : games.length === 0 ? (
+        ) : displayGames.length === 0 ? (
           <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
             No scheduled games found for this selection.
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {games.map((g) => {
+            {displayGames.map((g) => {
               const isLakers = g.is_lakers_game || g.home_team_code === 'LAL' || g.away_team_code === 'LAL';
               return (
                 <div
@@ -161,6 +210,18 @@ export default function ScheduleTimeline({
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {viewMode === 'upcoming' && games.length > 5 && !loading && (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '16px 0 8px' }}>
+            <button
+              onClick={() => setViewMode('full')}
+              className="btn btn-secondary"
+              style={{ fontSize: '0.82rem' }}
+            >
+              View Full Season Schedule ({games.length} Games) <ArrowRight size={14} />
+            </button>
           </div>
         )}
       </div>

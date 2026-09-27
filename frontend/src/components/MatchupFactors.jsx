@@ -12,29 +12,29 @@ export default function MatchupFactors({ prediction }) {
       title: 'Court & Venue Environment',
       icon: Home,
       detail: isHome 
-        ? 'Lakers host at Crypto.com Arena (Historical +2.8 pts home advantage applied)'
-        : `Lakers play as visitors on the road against ${opp} (Road penalty applied)`,
+        ? 'Lakers home court at Crypto.com Arena (Pregame home court indicator).'
+        : `Lakers road matchup against ${opp} (Pregame away game context).`,
       lakersAdvantage: isHome,
-      score: isHome ? 'Home Adv (+)' : 'Road Context (-)'
+      score: isHome ? 'Home Court' : 'Road Matchup'
     },
     {
       title: 'Pregame Elo Rating Baseline',
       icon: Zap,
-      detail: 'Chronological team Elo rating calculated prior to game date without future leakage.',
+      detail: 'Chronological team Elo rating calculated prior to game date without future lookahead.',
       lakersAdvantage: true,
       score: '1540 vs 1515'
     },
     {
       title: 'Schedule Rest & Travel Density',
       icon: Clock,
-      detail: 'Rest days differential computed from previous regular season match sequence.',
+      detail: 'Days of rest differential relative to previous regular season game schedule.',
       lakersAdvantage: true,
-      score: 'Season Opener (Full Rest)'
+      score: 'Full Rest Context'
     },
     {
-      title: 'Regularized Differential Form',
+      title: 'Differential Form & Margin Baseline',
       icon: TrendingUp,
-      detail: 'Ridge regularized regression margin model baseline on 52 canonical pregame features.',
+      detail: 'Projected point margin from regularized differential regression model across 52 pregame features.',
       lakersAdvantage: prediction.predicted_lakers_margin >= 0,
       score: `${prediction.predicted_lakers_margin >= 0 ? '+' : ''}${prediction.predicted_lakers_margin?.toFixed(1)} pts`
     }

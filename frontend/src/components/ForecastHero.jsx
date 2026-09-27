@@ -37,16 +37,6 @@ export default function ForecastHero({ prediction, loading, error, onRefresh, on
   const lakersMargin = Number(prediction.predicted_lakers_margin ?? 0);
   const isFavored = lakersProb >= 0.5;
 
-  let confidenceLabel = 'BALANCED MATCHUP';
-  let confidenceVariant = 'neutral';
-  if (lakersProb >= 0.65 || lakersProb <= 0.35) {
-    confidenceLabel = 'HIGH CONFIDENCE';
-    confidenceVariant = isFavored ? 'gold' : 'purple';
-  } else if (lakersProb >= 0.55 || lakersProb <= 0.45) {
-    confidenceLabel = 'MODERATE SPREAD';
-    confidenceVariant = 'neutral';
-  }
-
   // Format date: e.g. "2026-10-21" -> "Wednesday, October 21, 2026"
   const formatDateDisplay = (dateStr) => {
     try {
@@ -77,8 +67,8 @@ export default function ForecastHero({ prediction, loading, error, onRefresh, on
           <StatusBadge variant="gold">
             NEXT LAKERS GAME
           </StatusBadge>
-          <StatusBadge variant={confidenceVariant}>
-            {confidenceLabel}
+          <StatusBadge variant={isFavored ? 'gold' : 'purple'}>
+            {isFavored ? 'Lakers Favored' : 'Underdog Matchup'}
           </StatusBadge>
         </div>
 
@@ -110,13 +100,13 @@ export default function ForecastHero({ prediction, loading, error, onRefresh, on
         {/* Away Team */}
         <div style={{ textAlign: isHome ? 'left' : 'right' }}>
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            {isHome ? 'Visitor' : 'Host'}
+            {isHome ? 'Away Team' : 'Home Team'}
           </div>
           <div style={{ fontSize: '1.6rem', fontWeight: 800, color: isHome ? 'var(--text-primary)' : 'var(--gold-primary)', marginTop: '2px' }}>
             {isHome ? opponentName : 'Los Angeles Lakers'}
           </div>
           <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-secondary)', marginTop: '4px' }}>
-            {isHome ? `${Math.round(opponentProb * 100)}% Win Prob` : `${Math.round(lakersProb * 100)}% Win Prob`}
+            {isHome ? `${(opponentProb * 100).toFixed(1)}% Win Prob` : `${(lakersProb * 100).toFixed(1)}% Win Prob`}
           </div>
         </div>
 
@@ -141,13 +131,13 @@ export default function ForecastHero({ prediction, loading, error, onRefresh, on
         {/* Home Team */}
         <div style={{ textAlign: isHome ? 'right' : 'left' }}>
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            {isHome ? 'Host' : 'Visitor'}
+            {isHome ? 'Home Team' : 'Away Team'}
           </div>
           <div style={{ fontSize: '1.6rem', fontWeight: 800, color: isHome ? 'var(--gold-primary)' : 'var(--text-primary)', marginTop: '2px' }}>
             {isHome ? 'Los Angeles Lakers' : opponentName}
           </div>
           <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-secondary)', marginTop: '4px' }}>
-            {isHome ? `${Math.round(lakersProb * 100)}% Win Prob` : `${Math.round(opponentProb * 100)}% Win Prob`}
+            {isHome ? `${(lakersProb * 100).toFixed(1)}% Win Prob` : `${(opponentProb * 100).toFixed(1)}% Win Prob`}
           </div>
         </div>
       </div>

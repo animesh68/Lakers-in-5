@@ -12,10 +12,13 @@ import {
   TrendingUp, 
   ChevronDown, 
   ChevronUp, 
-  Info 
+  Info,
+  Server,
+  Wrench
 } from 'lucide-react';
 import StatusBadge from './ui/StatusBadge';
 import MetricCard from './ui/MetricCard';
+import { getStoredApiUrl, setStoredApiUrl } from '../api';
 
 export default function ModelHealthView({
   healthData,
@@ -25,14 +28,33 @@ export default function ModelHealthView({
   error,
   onRefresh
 }) {
-  const [selectedWindow, setSelectedWindow] = useState('30d');
   const [expandedSection, setExpandedSection] = useState(null);
+  const [devApiUrl, setDevApiUrl] = useState(getStoredApiUrl());
+  const [devSaveMsg, setDevSaveMsg] = useState(null);
 
   const toggleSection = (id) => {
     setExpandedSection(expandedSection === id ? null : id);
   };
 
-  const isHealthy = healthData?.status === 'HEALTHY' || !healthData?.status?.includes('DEGRADED');
+  const handleSaveDevUrl = (e) => {
+    e.preventDefault();
+    setStoredApiUrl(devApiUrl);
+    setDevSaveMsg("Configuration saved. Refreshing diagnostics...");
+    onRefresh();
+    setTimeout(() => setDevSaveMsg(null), 3500);
+  };
+
+  // Canonical Health Status Computation
+  const rawStatus = (healthData?.status || 'HEALTHY').toUpperCase();
+  const isHealthy = rawStatus === 'HEALTHY' || rawStatus === 'NOMINAL';
+  const isWarning = rawStatus === 'WARNING' || rawStatus === 'DEGRADED';
+  const isCritical = rawStatus === 'CRITICAL' || rawStatus === 'ERROR';
+
+  const canonicalLabel = isHealthy ? 'NOMINAL' : isWarning ? 'WARNING' : 'CRITICAL';
+  const badgeVariant = isHealthy ? 'success' : isWarning ? 'warning' : 'danger';
+  const badgeText = isHealthy ? 'Nominal' : isWarning ? 'Warning' : 'Critical Issue';
+  const statusIcon = isHealthy ? ShieldCheck : AlertTriangle;
+  const statusColor = isHealthy ? 'var(--emerald-success)' : isWarning ? 'var(--amber-warning)' : 'var(--rose-danger)';
 
   return (
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
@@ -71,18 +93,18 @@ export default function ModelHealthView({
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
             <MetricCard
               label="Overall Model Health"
-              value={healthData?.status || 'HEALTHY'}
+              value={canonicalLabel}
               subtext="Multi-metric diagnostic status"
-              statusColor={isHealthy ? 'var(--emerald-success)' : 'var(--amber-warning)'}
+              statusColor={statusColor}
               badge={
-                <StatusBadge variant={isHealthy ? 'success' : 'danger'} icon={isHealthy ? ShieldCheck : AlertTriangle}>
-                  {isHealthy ? 'Nominal' : 'Action Required'}
+                <StatusBadge variant={badgeVariant} icon={statusIcon}>
+                  {badgeText}
                 </StatusBadge>
               }
             />
 
             <MetricCard
-              label="Brier Calibration Score"
+              label="Brier Score"
               value={healthData?.performance?.brier_score != null ? healthData.performance.brier_score.toFixed(4) : '0.2030'}
               subtext="Benchmark: 0.250 Naive baseline"
               statusColor="var(--gold-primary)"
@@ -113,13 +135,17 @@ export default function ModelHealthView({
                   width: '42px',
                   height: '42px',
                   borderRadius: '12px',
-                  background: 'rgba(16, 185, 129, 0.15)',
-                  border: '1px solid var(--emerald-border)',
+                  background: retrainData?.decision === 'RETRAIN_RECOMMENDED' ? 'rgba(244, 63, 94, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                  border: `1px solid ${retrainData?.decision === 'RETRAIN_RECOMMENDED' ? 'var(--rose-danger)' : 'var(--emerald-border)'}`,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center'
                 }}>
-                  <CheckCircle2 size={22} color="var(--emerald-success)" />
+                  {retrainData?.decision === 'RETRAIN_RECOMMENDED' ? (
+                    <AlertTriangle size={22} color="var(--rose-danger)" />
+                  ) : (
+                    <CheckCircle2 size={22} color="var(--emerald-success)" />
+                  )}
                 </div>
                 <div>
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
@@ -129,7 +155,11 @@ export default function ModelHealthView({
                     {retrainData?.decision || 'NO_RETRAIN_NEEDED'}
                   </div>
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                    Current models remain strictly within statistical performance and drift thresholds.
+                    {retrainData?.reasons && retrainData.reasons.length > 0
+                      ? retrainData.reasons[0]
+                      : retrainData?.decision === 'RETRAIN_RECOMMENDED'
+                      ? 'Performance or data drift triggers require retraining.'
+                      : 'Current models remain strictly within statistical performance and drift thresholds.'}
                   </div>
                 </div>
               </div>
@@ -268,6 +298,65 @@ export default function ModelHealthView({
                   <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
                     Embedded DuckDB analytical engine with Parquet storage for sub-15ms cold-start pregame feature queries, coupled with Neon PostgreSQL for persistent monitoring logs.
                   </p>
+                </div>
+              )}
+            </div>
+
+            {/* Section 4: Developer Diagnostics & Endpoint Config */}
+            <div className="panel" style={{ overflow: 'hidden' }}>
+              <button
+                onClick={() => toggleSection('developer')}
+                style={{
+                  width: '100%',
+                  padding: '18px 24px',
+                  background: 'transparent',
+                  border: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  cursor: 'pointer',
+                  color: 'var(--text-primary)'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <Wrench size={18} color="var(--text-muted)" />
+                  <span style={{ fontSize: '0.95rem', fontWeight: 700 }}>Developer & Diagnostic Configuration</span>
+                </div>
+                {expandedSection === 'developer' ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+              </button>
+
+              {expandedSection === 'developer' && (
+                <div className="fade-in" style={{ padding: '0 24px 20px', borderTop: '1px solid var(--border-subtle)', paddingTop: '16px' }}>
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '14px' }}>
+                    Production environments default to same-origin requests (<code>/</code>). Configure custom API targets here for local development and staging environments.
+                  </p>
+                  
+                  <form onSubmit={handleSaveDevUrl} style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '520px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 600 }}>
+                        Custom Backend API Base URL
+                      </label>
+                      <input 
+                        type="text"
+                        value={devApiUrl}
+                        onChange={(e) => setDevApiUrl(e.target.value)}
+                        placeholder="Leave empty for production same-origin"
+                        style={{ width: '100%', padding: '8px 12px', fontSize: '0.85rem' }}
+                      />
+                    </div>
+
+                    {devSaveMsg && (
+                      <div style={{ fontSize: '0.78rem', color: 'var(--emerald-success)', fontWeight: 600 }}>
+                        {devSaveMsg}
+                      </div>
+                    )}
+
+                    <div>
+                      <button type="submit" className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '6px 14px' }}>
+                        Save Endpoint Configuration
+                      </button>
+                    </div>
+                  </form>
                 </div>
               )}
             </div>

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
 import Footer from './components/Footer';
-import SettingsModal from './components/SettingsModal';
 import ForecastHero from './components/ForecastHero';
 import MatchupFactors from './components/MatchupFactors';
 import UpcomingLakers from './components/UpcomingLakers';
@@ -50,7 +49,6 @@ const getTeamCode = (nameOrCode) => {
 export default function App() {
   const [activeTab, setActiveTab] = useState('forecast'); // 'forecast' | 'matchups' | 'schedule' | 'model'
   const [apiUrl, setApiUrl] = useState(getStoredApiUrl());
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [apiStatus, setApiStatus] = useState({ online: false, checking: true, latency: 0, info: null, error: null });
 
   // Lakers Next Game Prediction State
@@ -264,7 +262,6 @@ export default function App() {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         isOnline={apiStatus.online}
-        onOpenSettings={() => setIsSettingsOpen(true)}
       />
 
       {/* Main Content Area */}
@@ -354,14 +351,6 @@ export default function App() {
 
       {/* Footer */}
       <Footer onOpenModelTab={() => setActiveTab('model')} />
-
-      {/* Settings Modal */}
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        apiStatus={apiStatus}
-        onRecheck={checkConnection}
-      />
     </div>
   );
 }

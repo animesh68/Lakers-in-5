@@ -26,7 +26,7 @@ NBA_TEAMS = [
     {"id": "1610612744", "code": "GSW", "city": "Golden State", "name": "Warriors", "aliases": ["golden state", "warriors", "gsw", "gs"]},
     {"id": "1610612745", "code": "HOU", "city": "Houston", "name": "Rockets", "aliases": ["houston", "rockets", "hou"]},
     {"id": "1610612754", "code": "IND", "city": "Indiana", "name": "Pacers", "aliases": ["indiana", "pacers", "ind"]},
-    {"id": "1610612746", "code": "LAC", "city": "LA Clippers", "name": "Clippers", "aliases": ["la clippers", "los angeles clippers", "clippers", "lac"]},
+    {"id": "1610612746", "code": "LAC", "city": "LA", "name": "Clippers", "aliases": ["la clippers", "los angeles clippers", "clippers", "lac"]},
     {"id": "1610612747", "code": "LAL", "city": "Los Angeles", "name": "Lakers", "aliases": ["la lakers", "los angeles lakers", "lakers", "lal", "la"]},
     {"id": "1610612763", "code": "MEM", "city": "Memphis", "name": "Grizzlies", "aliases": ["memphis", "grizzlies", "mem"]},
     {"id": "1610612748", "code": "MIA", "city": "Miami", "name": "Heat", "aliases": ["miami", "heat", "mia"]},

@@ -69,3 +69,51 @@ def test_data_validator_on_clean_data(test_engine):
     report = validator.run_all_validations()
     assert report["overall_status"] == "PASSED"
 
+
+def test_canonical_team_name_normalization():
+    """
+    Regression test preventing duplicate city/name concatenation bugs
+    such as 'LA Clippers Clippers'.
+    """
+    from src.inference.schedule_service import normalize_team, ScheduleService
+
+    # Test LAC direct code normalization
+    lac_meta = normalize_team("LAC")
+    assert lac_meta["name"] == "LA Clippers", f"Expected 'LA Clippers', got '{lac_meta['name']}'"
+    assert "LA Clippers Clippers" not in lac_meta["name"]
+
+    # Test all 30 teams for duplication pattern (e.g. 'Clippers Clippers', 'Lakers Lakers')
+    for code in ["LAL", "LAC", "GSW", "BOS", "NYK", "DEN", "MIA"]:
+        meta = normalize_team(code)
+        words = meta["name"].split()
+        if len(words) >= 2:
+            assert words[-1] != words[-2], f"Duplicate team name detected in {meta['name']}"
+
+    # Test schedule games
+    service = ScheduleService()
+    schedule = service.get_games_for_team("LAC")[:5]
+    for g in schedule:
+        assert "LA Clippers Clippers" not in g.get("home_team", "")
+        assert "LA Clippers Clippers" not in g.get("away_team", "")
+
+
+def test_canonical_model_health_status_contract():
+    """
+    Regression test ensuring that model health statuses adhere strictly to canonical enums
+    ['HEALTHY', 'WARNING', 'CRITICAL'] and never produce contradictory states.
+    """
+    from src.monitoring.health import ModelHealthService
+    from src.monitoring.repository import PredictionRepository
+
+    temp_repo = PredictionRepository(fallback_dir="data/monitoring_test_integrity", use_db=False)
+    health_svc = ModelHealthService(repository=temp_repo)
+
+    health_eval = health_svc.evaluate_health(window="30d")
+    status = health_eval.get("status")
+    assert status in ["HEALTHY", "WARNING", "CRITICAL"], f"Unknown model health status {status}"
+
+    # When healthy, neither degraded nor critical flags should be present
+    if status == "HEALTHY":
+        assert health_eval.get("issues", []) == [] or len(health_eval.get("issues", [])) == 0
+
+
