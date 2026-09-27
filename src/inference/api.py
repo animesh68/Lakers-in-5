@@ -18,9 +18,12 @@ from src.inference.schemas import (
     ScheduledGame,
     HealthReportResponse,
     RetrainingDecisionResponse,
+    PlayerPredictionRequest,
+    PlayerPredictionResponse,
 )
 from src.inference.schedule_service import ScheduleService, normalize_team
 from src.inference.predictor import GamePredictor
+from src.inference.player_predictor import PlayerPredictor
 from src.monitoring.repository import PredictionRepository
 from src.monitoring.metrics import MonitoringMetricsService
 from src.monitoring.drift import DataDriftDetector
@@ -31,7 +34,7 @@ from src.utils.logging import logger
 app = FastAPI(
     title="Lakers in 5 — Production Inference & Monitoring API",
     description="Deterministic ML prediction, monitoring, and health API for upcoming NBA and Los Angeles Lakers games.",
-    version="1.1.0"
+    version="1.2.0"
 )
 
 app.add_middleware(
@@ -44,12 +47,19 @@ app.add_middleware(
 
 # Global service singletons
 _predictor: Optional[GamePredictor] = None
+_player_predictor: Optional[PlayerPredictor] = None
 _schedule_service: Optional[ScheduleService] = None
 _repository: Optional[PredictionRepository] = None
 _metrics_service: Optional[MonitoringMetricsService] = None
 _drift_detector: Optional[DataDriftDetector] = None
 _health_service: Optional[ModelHealthService] = None
 _retrain_engine: Optional[RetrainingDecisionEngine] = None
+
+def get_player_predictor() -> PlayerPredictor:
+    global _player_predictor
+    if _player_predictor is None:
+        _player_predictor = PlayerPredictor(schedule_service=get_schedule_service())
+    return _player_predictor
 
 def get_repository() -> PredictionRepository:
     global _repository
@@ -207,6 +217,50 @@ def predict_game_by_id_endpoint(
     except Exception as e:
         logger.error(f"Prediction by game_id {game_id} failed: {e}")
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.post("/predict/players", response_model=PlayerPredictionResponse, summary="Predict Individual Player Performance")
+def predict_players_endpoint(request: PlayerPredictionRequest):
+    """
+    Predicts expected minutes, points, rebounds, and assists for active rotation players
+    in an official scheduled 2026-27 NBA matchup.
+    """
+    try:
+        player_predictor = get_player_predictor()
+        return player_predictor.predict_scheduled_game_players(
+            home_team_identifier=request.home_team,
+            away_team_identifier=request.away_team,
+            game_date_str=str(request.game_date)
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        logger.error(f"Player prediction failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/predict/{game_id}/players", response_model=PlayerPredictionResponse, summary="Predict Players for Scheduled Game Number")
+def predict_players_by_game_num_endpoint(game_id: int):
+    """
+    Looks up a scheduled 2026-27 game by official game number and predicts individual player performance.
+    """
+    schedule_service = get_schedule_service()
+    game = schedule_service.get_game_by_num(game_id)
+    if not game:
+        raise HTTPException(status_code=404, detail=f"Scheduled game #{game_id} not found in official 2026-27 schedule.")
+    
+    try:
+        player_predictor = get_player_predictor()
+        return player_predictor.predict_scheduled_game_players(
+            home_team_identifier=game.get("home_team_code") or game.get("home_team"),
+            away_team_identifier=game.get("away_team_code") or game.get("away_team"),
+            game_date_str=game["game_date"]
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        logger.error(f"Player prediction for game #{game_id} failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/schedule/matchup", response_model=List[ScheduledGame], summary="Query Scheduled Games for Matchup")

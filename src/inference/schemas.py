@@ -113,3 +113,33 @@ class RetrainingDecisionResponse(BaseModel):
     metrics: Optional[Dict[str, Any]] = None
     evaluated_at: str
     is_automatic_retrain: bool = False
+
+# Phase 8 Player Performance Prediction Schemas
+
+class PlayerProjectionItem(BaseModel):
+    player_id: str
+    player_name: str
+    team: str
+    team_code: str
+    expected_minutes: float = Field(description="Expected playing time in minutes")
+    predicted_points: float = Field(description="Predicted points scored")
+    predicted_rebounds: float = Field(description="Predicted total rebounds")
+    predicted_assists: float = Field(description="Predicted assists")
+    is_transition_player: bool = Field(default=False, description="True if player joined team in 2026 offseason")
+
+class PlayerPredictionRequest(BaseModel):
+    home_team: str = Field(description="Home team name, code, or ID")
+    away_team: str = Field(description="Away team name, code, or ID")
+    game_date: date = Field(description="Target scheduled game date (YYYY-MM-DD)")
+    game_id: Optional[str] = Field(None, description="Optional official game ID")
+
+class PlayerPredictionResponse(BaseModel):
+    game_id: str
+    game_date: str
+    home_team: str
+    away_team: str
+    players: List[PlayerProjectionItem]
+    model_versions: Dict[str, str]
+    feature_schema_version: str = "v1.0-player"
+    prediction_timestamp: str
+

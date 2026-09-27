@@ -35,6 +35,9 @@ models/*.onnx
 models/*.bin
 !models/.gitkeep
 !models/champion_*.joblib
+!models/player_*.joblib
+
+scratch/
 
 # Raw and Processed Datasets (reproducible via pipelines; GitHub limits files to <100MB)
 data/raw/*

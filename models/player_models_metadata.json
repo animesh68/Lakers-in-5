@@ -1,0 +1,133 @@
+{
+  "evaluation": {
+    "overall": {
+      "minutes": {
+        "mae": 5.271,
+        "rmse": 6.828,
+        "bias": 0.309
+      },
+      "points": {
+        "mae": 4.838,
+        "rmse": 6.271,
+        "bias": 0.215
+      },
+      "rebounds": {
+        "mae": 2.003,
+        "rmse": 2.612,
+        "bias": 0.069
+      },
+      "assists": {
+        "mae": 1.428,
+        "rmse": 1.922,
+        "bias": 0.076
+      },
+      "sample_count": 29982
+    },
+    "slices": {
+      "high_minutes": {
+        "minutes": {
+          "mae": 4.977,
+          "rmse": 6.558,
+          "bias": -3.754
+        },
+        "points": {
+          "mae": 5.52,
+          "rmse": 7.151,
+          "bias": -1.968
+        },
+        "rebounds": {
+          "mae": 2.224,
+          "rmse": 2.928,
+          "bias": -0.626
+        },
+        "assists": {
+          "mae": 1.701,
+          "rmse": 2.266,
+          "bias": -0.374
+        },
+        "sample_count": 12961
+      },
+      "low_minutes": {
+        "minutes": {
+          "mae": 7.2,
+          "rmse": 8.778,
+          "bias": 6.766
+        },
+        "points": {
+          "mae": 4.3,
+          "rmse": 5.578,
+          "bias": 3.104
+        },
+        "rebounds": {
+          "mae": 1.853,
+          "rmse": 2.352,
+          "bias": 1.27
+        },
+        "assists": {
+          "mae": 1.15,
+          "rmse": 1.57,
+          "bias": 0.706
+        },
+        "sample_count": 7314
+      },
+      "team_transition": {
+        "minutes": {
+          "mae": 12.442,
+          "rmse": 14.031,
+          "bias": 8.204
+        },
+        "points": {
+          "mae": 7.568,
+          "rmse": 9.214,
+          "bias": 4.226
+        },
+        "rebounds": {
+          "mae": 2.65,
+          "rmse": 3.334,
+          "bias": 1.333
+        },
+        "assists": {
+          "mae": 1.861,
+          "rmse": 2.498,
+          "bias": 0.851
+        },
+        "sample_count": 360
+      }
+    }
+  },
+  "model_version": "PlayerSuite-v1.0",
+  "feature_schema_version": "v1.0-player",
+  "feature_contract": [
+    "player_min_avg_5",
+    "player_min_avg_10",
+    "player_min_season_avg",
+    "player_pts_per_min_10",
+    "player_reb_per_min_10",
+    "player_ast_per_min_10",
+    "player_ts_pct_10",
+    "player_usage_pct_10",
+    "is_starter_ratio_10",
+    "player_games_played_season",
+    "is_home",
+    "days_since_last_game",
+    "is_b2b",
+    "team_pace_10",
+    "opponent_pace_10",
+    "opponent_def_rating_10",
+    "team_off_rating_10",
+    "is_team_change",
+    "days_since_team_change",
+    "games_with_current_team",
+    "prior_team_min_avg",
+    "prior_team_pts_per_min",
+    "prior_team_reb_per_min",
+    "prior_team_ast_per_min"
+  ],
+  "saved_at": "2026-09-27T14:19:20.844208",
+  "models": {
+    "minutes": "PlayerMinutes-Ridge-v1",
+    "points": "PlayerPoints-Ridge-v1",
+    "rebounds": "PlayerRebounds-Ridge-v1",
+    "assists": "PlayerAssists-Ridge-v1"
+  }
+}
