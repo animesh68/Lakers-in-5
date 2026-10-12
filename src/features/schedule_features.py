@@ -3,8 +3,11 @@ Schedule & Rest Feature Generator for Lakers in 5.
 Calculates rest days, back-to-back flags, and game density (games in last 7 days) strictly before game date.
 """
 
-from typing import Optional
-import duckdb
+from typing import Optional, Any
+try:
+    import duckdb
+except Exception:
+    duckdb = None
 import pandas as pd
 from src.utils.logging import logger
 
@@ -12,7 +15,7 @@ class ScheduleFeatureGenerator:
     """
     Computes schedule rest, fatigue, and density metrics for each team prior to tip-off.
     """
-    def __init__(self, duckdb_conn: Optional[duckdb.DuckDBPyConnection] = None):
+    def __init__(self, duckdb_conn: Optional[Any] = None):
         self.conn = duckdb_conn
 
     def generate_schedule_features(self) -> pd.DataFrame:

@@ -111,5 +111,21 @@ export const api = {
 
   getRetrainingDecision: async () => {
     return request("/monitoring/retraining-decision");
+  },
+
+  predictPlayers: async (homeTeam, awayTeam, gameDate, gameId = null) => {
+    return request("/predict/players", {
+      method: "POST",
+      body: {
+        home_team: homeTeam,
+        away_team: awayTeam,
+        game_date: gameDate,
+        game_id: gameId ? String(gameId) : null
+      }
+    });
+  },
+
+  predictPlayersByGameId: async (gameId) => {
+    return request(`/predict/${gameId}/players`);
   }
 };

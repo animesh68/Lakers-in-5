@@ -3,8 +3,11 @@ Team Feature Generator for Lakers in 5.
 Calculates leakage-safe recent form and advanced efficiency metrics using DuckDB window aggregations.
 """
 
-from typing import Optional
-import duckdb
+from typing import Optional, Any
+try:
+    import duckdb
+except Exception:
+    duckdb = None
 import pandas as pd
 from src.utils.logging import logger
 
@@ -13,7 +16,7 @@ class TeamFeatureGenerator:
     Computes rolling team-level statistics over preceding same-season games.
     Strictly uses ROWS BETWEEN N PRECEDING AND 1 PRECEDING (excluding the current game).
     """
-    def __init__(self, duckdb_conn: Optional[duckdb.DuckDBPyConnection] = None):
+    def __init__(self, duckdb_conn: Optional[Any] = None):
         self.conn = duckdb_conn
 
     def generate_team_rolling_features(self) -> pd.DataFrame:

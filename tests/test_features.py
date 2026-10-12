@@ -59,7 +59,11 @@ def test_leakage_checker_on_built_dataset():
     """
     Runs full LeakageChecker validation on the generated parquet feature dataset.
     """
-    features_df = pd.read_parquet("data/features/game_features.parquet")
+    try:
+        features_df = pd.read_parquet("data/features/game_features.parquet")
+    except Exception:
+        import duckdb
+        features_df = duckdb.connect().execute("SELECT * FROM 'data/features/game_features.parquet'").df()
     checker = LeakageChecker(features_df)
     report = checker.run_all_checks()
     

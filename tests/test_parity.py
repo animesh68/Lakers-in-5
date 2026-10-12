@@ -20,7 +20,11 @@ def prod_feature_service(lake_client):
 
 @pytest.fixture(scope="module")
 def training_features_df():
-    return pd.read_parquet("data/features/game_features.parquet")
+    try:
+        return pd.read_parquet("data/features/game_features.parquet")
+    except Exception:
+        import duckdb
+        return duckdb.connect().execute("SELECT * FROM 'data/features/game_features.parquet'").df()
 
 
 def test_contract_column_count_and_order():

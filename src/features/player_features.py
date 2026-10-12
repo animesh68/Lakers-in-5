@@ -4,8 +4,11 @@ Calculates team-aware, strictly pregame-only aggregate rotation player performan
 Guarantees zero post-game participation leakage: does NOT use target game box-scores or minutes.
 """
 
-from typing import Optional
-import duckdb
+from typing import Optional, Any
+try:
+    import duckdb
+except Exception:
+    duckdb = None
 import pandas as pd
 from src.utils.logging import logger
 
@@ -17,7 +20,7 @@ class PlayerFeatureGenerator:
     """
     def __init__(
         self,
-        duckdb_conn: Optional[duckdb.DuckDBPyConnection] = None,
+        duckdb_conn: Optional[Any] = None,
         min_rotation_minutes: float = 10.0,
         lookback_games: int = 5
     ):

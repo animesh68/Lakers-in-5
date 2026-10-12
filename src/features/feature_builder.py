@@ -8,7 +8,10 @@ import os
 import json
 import time
 from typing import Dict, Any, Optional, Tuple
-import duckdb
+try:
+    import duckdb
+except Exception:
+    duckdb = None
 import pandas as pd
 import numpy as np
 from src.lake.duckdb_client import DuckDBClient

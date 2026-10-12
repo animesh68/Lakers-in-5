@@ -124,12 +124,18 @@ def test_no_hardcoded_secrets_in_deployment_configs():
 
 
 def test_api_entrypoint_and_health_contract():
-    """Tests that the containerized API entrypoint boots cleanly and responds to /health."""
+    """Tests that the containerized API entrypoint boots cleanly and responds to /health and /health/models."""
     client = TestClient(app)
     response = client.get("/health")
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "healthy"
-    assert "classifier" in data
-    assert "regressor" in data
-    assert "model_version" in data
+    
+    # Models contract
+    resp_models = client.get("/health/models")
+    assert resp_models.status_code == 200
+    models_data = resp_models.json()
+    assert models_data["status"] == "healthy"
+    assert "production" in models_data
+    assert "shadow" in models_data
+    assert models_data["production"]["version"] == "PlayerSuite-v1.0"

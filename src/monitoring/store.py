@@ -108,3 +108,104 @@ class PredictionORM(Base):
         Index("idx_predictions_game_date_status", "game_date", "status"),
         Index("idx_predictions_created_model", "prediction_created_at", "model_version"),
     )
+
+
+class PlayerShadowPredictionRecord(BaseModel):
+    """
+    Pydantic schema representing an immutable pregame paired player prediction record
+    (Production Pooled vs C1 Role-Stratified Shadow).
+    """
+    prediction_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    game_id: str
+    game_date: str  # YYYY-MM-DD
+    player_id: str
+    player_name: Optional[str] = "Unknown"
+    team_id: Optional[str] = None
+    team_code: Optional[str] = None
+    opponent_team_id: Optional[str] = None
+    opponent_team_code: Optional[str] = None
+    
+    production_model_version: str = "PlayerSuite-v1.0"
+    shadow_model_version: str = "PlayerSuite-v1.1-c1-shadow"
+    
+    role: str = "bench"  # star | starter | bench
+    
+    predicted_minutes_production: Optional[float] = None
+    predicted_minutes_shadow: Optional[float] = None
+    
+    predicted_points_production: Optional[float] = None
+    predicted_points_shadow: Optional[float] = None
+    
+    predicted_rebounds_production: Optional[float] = None
+    predicted_rebounds_shadow: Optional[float] = None
+    
+    predicted_assists_production: Optional[float] = None
+    predicted_assists_shadow: Optional[float] = None
+    
+    feature_contract_version: str = "v1.1-player-role-stratified"
+    prediction_timestamp: datetime = Field(default_factory=datetime.utcnow)
+    prediction_status: str = "pending"  # pending | evaluated | cancelled
+    
+    # Actual postgame outcomes (populated during outcome settlement)
+    actual_minutes: Optional[float] = None
+    actual_points: Optional[float] = None
+    actual_rebounds: Optional[float] = None
+    actual_assists: Optional[float] = None
+    outcome_recorded_at: Optional[datetime] = None
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class PlayerShadowPredictionORM(Base):
+    """
+    SQLAlchemy ORM table definition for persistent paired player predictions.
+    """
+    __tablename__ = "player_shadow_predictions"
+
+    prediction_id = Column(String(64), primary_key=True, index=True)
+    game_id = Column(String(64), index=True, nullable=False)
+    game_date = Column(Date, index=True, nullable=False)
+    player_id = Column(String(32), index=True, nullable=False)
+    player_name = Column(String(100), nullable=False)
+    team_id = Column(String(32), nullable=False)
+    team_code = Column(String(10), nullable=False)
+    opponent_team_id = Column(String(32), nullable=False)
+    opponent_team_code = Column(String(10), nullable=True)
+
+    production_model_version = Column(String(128), nullable=False, default="PlayerSuite-v1.0")
+    shadow_model_version = Column(String(128), nullable=False, default="PlayerSuite-v1.1-c1-shadow")
+
+    role = Column(String(32), index=True, nullable=False)
+
+    predicted_minutes_production = Column(Float, nullable=False)
+    predicted_minutes_shadow = Column(Float, nullable=False)
+
+    predicted_points_production = Column(Float, nullable=False)
+    predicted_points_shadow = Column(Float, nullable=False)
+
+    predicted_rebounds_production = Column(Float, nullable=False)
+    predicted_rebounds_shadow = Column(Float, nullable=False)
+
+    predicted_assists_production = Column(Float, nullable=False)
+    predicted_assists_shadow = Column(Float, nullable=False)
+
+    feature_contract_version = Column(String(64), nullable=False, default="v1.1-player-role-stratified")
+    prediction_timestamp = Column(DateTime, index=True, nullable=False, default=datetime.utcnow)
+    prediction_status = Column(String(32), index=True, nullable=False, default="pending")
+
+    actual_minutes = Column(Float, nullable=True)
+    actual_points = Column(Float, nullable=True)
+    actual_rebounds = Column(Float, nullable=True)
+    actual_assists = Column(Float, nullable=True)
+    outcome_recorded_at = Column(DateTime, nullable=True)
+
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        Index("idx_player_shadow_game_player", "game_id", "player_id", unique=True),
+        Index("idx_player_shadow_date_status", "game_date", "prediction_status"),
+        Index("idx_player_shadow_role_status", "role", "prediction_status"),
+    )
+

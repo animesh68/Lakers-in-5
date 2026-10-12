@@ -43,13 +43,26 @@ temp/
 .DS_Store
 Thumbs.db
 
-# Notebooks
+# Testing, Scratch & Documentation
+tests/
+scratch/
+docs/
+notebooks/
 *.ipynb
 .ipynb_checkpoints
 
-# Frontend Node Modules & Dist
+# Frontend Node Modules & Caches
 frontend/node_modules/
+frontend/.vite/
 node_modules/
 dist/
+frontend/dist/
+
+# IDE & OS Metadata
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+.edge_profile/
 
 

@@ -13,7 +13,7 @@ services:
     dockerfilePath: ./Dockerfile
     dockerContext: .
     plan: starter
-    healthCheckPath: /health
+    healthCheckPath: /health/ready
     envVars:
       - key: DATABASE_URL
         sync: false # Set via Render Dashboard Environment / Secrets

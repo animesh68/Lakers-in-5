@@ -8,9 +8,12 @@ import os
 import re
 import unicodedata
 from typing import Dict, Any, Optional, List, Set, Tuple
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import pandas as pd
-import duckdb
+try:
+    import duckdb
+except Exception:
+    duckdb = None
 
 from src.inference.schedule_service import normalize_team
 from src.utils.logging import logger
@@ -35,7 +38,7 @@ class RosterService:
         self,
         transactions_csv_path: Optional[str] = None,
         parquet_path: Optional[str] = None,
-        duckdb_conn: Optional[duckdb.DuckDBPyConnection] = None
+        duckdb_conn: Optional[Any] = None
     ):
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         self.csv_path = transactions_csv_path or os.path.join(
@@ -61,30 +64,7 @@ class RosterService:
         name_map: Dict[str, str] = {}
         pos_map: Dict[str, str] = {}
 
-        # 1. Load from player_game_stats.parquet (most authoritative)
-        if os.path.exists(self.parquet_path):
-            con = self.conn or duckdb.connect()
-            try:
-                p_df = con.execute(f"""
-                    SELECT DISTINCT 
-                        personId, 
-                        concat(firstName, ' ', lastName) as full_name
-                    FROM '{self.parquet_path}'
-                """).df()
-                for _, row in p_df.iterrows():
-                    pid = str(row['personId'])
-                    raw_name = str(row['full_name']).strip()
-                    norm_name = normalize_player_name(raw_name)
-                    id_map[norm_name] = pid
-                    id_map[raw_name.lower()] = pid
-                    name_map[pid] = raw_name
-            except Exception as e:
-                logger.warning(f"Failed to load player stats mapping from parquet: {e}")
-            finally:
-                if self.conn is None:
-                    con.close()
-
-        # 2. Augment from Players.csv
+        # 1. Load from Players.csv
         if os.path.exists(self.players_csv_path):
             try:
                 csv_df = pd.read_csv(self.players_csv_path)
@@ -104,6 +84,23 @@ class RosterService:
                     pos_map[pid] = pos
             except Exception as e:
                 logger.warning(f"Failed to load Players.csv mapping: {e}")
+
+        # 2. Augment from player_game_stats.parquet with lightweight streaming query
+        if os.path.exists(self.parquet_path):
+            try:
+                if duckdb is not None:
+                    p_path = os.path.abspath(self.parquet_path).replace("\\", "/")
+                    q_conn = self.conn or duckdb.connect(":memory:")
+                    rows = q_conn.execute(f"SELECT DISTINCT personId, firstName, lastName FROM read_parquet('{p_path}') WHERE personId IS NOT NULL").fetchall()
+                    for pid_raw, fn, ln in rows:
+                        pid = str(pid_raw)
+                        raw_name = f"{fn or ''} {ln or ''}".strip()
+                        norm_name = normalize_player_name(raw_name)
+                        id_map[norm_name] = pid
+                        id_map[raw_name.lower()] = pid
+                        name_map[pid] = raw_name
+            except Exception as e:
+                logger.warning(f"Failed to load player stats mapping from parquet: {e}")
 
         self._player_id_map = id_map
         self._id_to_name_map = name_map
@@ -161,7 +158,6 @@ class RosterService:
         df["team_id"] = team_ids
         df["team_code"] = team_codes
         df["person_id"] = person_ids
-        # Canonical transaction date for 2026 offseason is July 1, 2026
         df["transaction_date"] = "2026-07-01"
 
         self._transactions_df = df
@@ -176,15 +172,182 @@ class RosterService:
         match = df[df["team_id"] == team_info["id"]]
         return match.to_dict(orient="records")
 
-    def get_team_additions(self, team_identifier: str) -> List[Dict[str, Any]]:
-        """Returns list of player additions acquired by the team in the 2026 offseason."""
-        txs = self.get_team_transactions(team_identifier)
-        return [t for t in txs if t.get("Category") == "Additions"]
+    def get_global_roster_universe(
+        self,
+        as_of_date: Any
+    ) -> Dict[str, Dict[str, Any]]:
+        """
+        Constructs the global player universe mapping personId -> canonical team assignment
+        as of a target date D. Strictly leakage-safe: utilizes historical games strictly before
+        as_of_date and chronological 2026 offseason transactions.
+        """
+        self._init_player_maps()
+        df_tx = self.load_transactions()
 
-    def get_team_departures(self, team_identifier: str) -> List[Dict[str, Any]]:
-        """Returns list of players who departed the team in the 2026 offseason."""
-        txs = self.get_team_transactions(team_identifier)
-        return [t for t in txs if t.get("Category") == "Departures"]
+        dt_target = datetime.strptime(str(as_of_date)[:10], "%Y-%m-%d")
+        cutoff_date = str(as_of_date)[:10]
+        cutoff_550 = (dt_target - timedelta(days=550)).strftime("%Y-%m-%d")
+        is_post_offseason_2026 = dt_target >= datetime(2026, 7, 1)
+
+        try:
+            if self.conn is None and duckdb is not None:
+                self.conn = duckdb.connect(":memory:")
+                self.conn.execute("SET memory_limit = '128MB'")
+                self.conn.execute("SET threads = 1")
+
+            if self.conn is not None and os.path.exists(self.parquet_path):
+                p_path = os.path.abspath(self.parquet_path).replace("\\", "/")
+                
+                # Query each player's LATEST team prior to cutoff_date and aggregate recent stats across all teams
+                sql = f"""
+                    WITH latest_game AS (
+                        SELECT 
+                            personId as person_id,
+                            playerteamId as latest_team_id,
+                            playerteamName as latest_team_name,
+                            substr(gameDateTimeEst, 1, 10) as last_game_date,
+                            ROW_NUMBER() OVER (PARTITION BY personId ORDER BY gameDateTimeEst DESC) as rn
+                        FROM read_parquet('{p_path}')
+                        WHERE substr(gameDateTimeEst, 1, 10) < '{cutoff_date}'
+                          AND substr(gameDateTimeEst, 1, 10) >= '{cutoff_550}'
+                          AND playerteamId IS NOT NULL
+                          AND numMinutes IS NOT NULL 
+                          AND TRY_CAST(numMinutes AS DOUBLE) > 0.0
+                    ),
+                    recent_stats AS (
+                        SELECT 
+                            personId as person_id,
+                            firstName,
+                            lastName,
+                            COUNT(*) as total_recent_games,
+                            AVG(TRY_CAST(numMinutes AS DOUBLE)) as avg_minutes,
+                            AVG(TRY_CAST(points AS DOUBLE)) as avg_points,
+                            AVG(TRY_CAST(reboundsTotal AS DOUBLE)) as avg_rebounds,
+                            AVG(TRY_CAST(assists AS DOUBLE)) as avg_assists
+                        FROM read_parquet('{p_path}')
+                        WHERE substr(gameDateTimeEst, 1, 10) < '{cutoff_date}'
+                          AND substr(gameDateTimeEst, 1, 10) >= '{cutoff_550}'
+                          AND numMinutes IS NOT NULL 
+                          AND TRY_CAST(numMinutes AS DOUBLE) > 0.0
+                        GROUP BY personId, firstName, lastName
+                    )
+                    SELECT 
+                        l.person_id,
+                        COALESCE(r.firstName || ' ' || r.lastName, l.person_id) as player_name,
+                        l.latest_team_id,
+                        l.latest_team_name,
+                        l.last_game_date,
+                        COALESCE(r.total_recent_games, 1) as total_recent_games,
+                        COALESCE(r.avg_minutes, 15.0) as avg_minutes,
+                        COALESCE(r.avg_points, 5.0) as avg_points,
+                        COALESCE(r.avg_rebounds, 2.0) as avg_rebounds,
+                        COALESCE(r.avg_assists, 1.0) as avg_assists
+                    FROM latest_game l
+                    LEFT JOIN recent_stats r ON l.person_id = r.person_id
+                    WHERE l.rn = 1
+                """
+                hist_players_df = self.conn.execute(sql).df()
+            else:
+                hist_players_df = pd.DataFrame()
+        except Exception as e:
+            logger.warning(f"Error querying historical roster: {e}")
+            hist_players_df = pd.DataFrame()
+
+        # Build global player assignments table
+        # Key: person_id -> Player Assignment Dict
+        global_assignments: Dict[str, Dict[str, Any]] = {}
+        for _, row in hist_players_df.iterrows():
+            pid = str(row["person_id"])
+            p_name = self.resolve_player_name(pid)
+            if p_name.startswith("Player #") and row["player_name"]:
+                p_name = str(row["player_name"])
+
+            global_assignments[pid] = {
+                "person_id": pid,
+                "player_name": p_name,
+                "team_id": str(row["latest_team_id"]),
+                "last_game_date": str(row["last_game_date"]),
+                "historical_avg_minutes": float(row["avg_minutes"]),
+                "historical_avg_points": float(row["avg_points"]),
+                "historical_avg_rebounds": float(row["avg_rebounds"]),
+                "historical_avg_assists": float(row["avg_assists"]),
+                "is_transition_player": False,
+                "prior_team_id": None,
+                "prior_team_name": None,
+                "transaction_category": "Established Roster",
+                "transaction_date": None,
+                "days_since_team_change": 0,
+                "games_with_current_team": int(row["total_recent_games"])
+            }
+
+        # Apply 2026 Offseason Transactions: Step 1: Departures, Step 2: Additions / Re-signing
+        if is_post_offseason_2026 and len(df_tx) > 0:
+            # Step 1: Process all departures first to vacate prior team roster spots
+            departures_df = df_tx[df_tx["Category"] == "Departures"]
+            for _, row in departures_df.iterrows():
+                t_name = str(row["Team"])
+                p_name = str(row["Player"])
+                pid = str(row.get("person_id") or self.resolve_player_id(p_name))
+                try:
+                    t_info = normalize_team(t_name)
+                    departing_team_id = t_info["id"]
+                except Exception:
+                    continue
+                if pid in global_assignments and global_assignments[pid]["team_id"] == departing_team_id:
+                    global_assignments[pid]["team_id"] = None
+
+            # Step 2: Process additions and re-signings to assign new team spots
+            additions_df = df_tx[df_tx["Category"].isin(["Additions", "Re-signing"])]
+            for _, row in additions_df.iterrows():
+                t_name = str(row["Team"])
+                cat = str(row["Category"])
+                p_name = str(row["Player"])
+                pid = str(row.get("person_id") or self.resolve_player_id(p_name))
+                
+                try:
+                    t_info = normalize_team(t_name)
+                    new_team_id = t_info["id"]
+                except Exception:
+                    continue
+
+                tx_dt = datetime(2026, 7, 1)
+                days_since_tx = max(0, (dt_target - tx_dt).days)
+                
+                if pid in global_assignments:
+                    prior_tid = global_assignments[pid]["team_id"]
+                    global_assignments[pid]["team_id"] = new_team_id
+                    global_assignments[pid]["is_transition_player"] = (cat == "Additions")
+                    global_assignments[pid]["transaction_category"] = cat
+                    global_assignments[pid]["transaction_date"] = "2026-07-01"
+                    global_assignments[pid]["days_since_team_change"] = days_since_tx
+                    global_assignments[pid]["player_name"] = p_name
+                    global_assignments[pid]["prior_team_id"] = prior_tid
+                else:
+                    global_assignments[pid] = {
+                        "person_id": pid,
+                        "player_name": p_name,
+                        "team_id": new_team_id,
+                        "last_game_date": "2026-07-01",
+                        "historical_avg_minutes": 20.0,
+                        "historical_avg_points": 10.0,
+                        "historical_avg_rebounds": 4.0,
+                        "historical_avg_assists": 2.0,
+                        "is_transition_player": (cat == "Additions"),
+                        "prior_team_id": None,
+                        "prior_team_name": None,
+                        "transaction_category": cat,
+                        "transaction_date": "2026-07-01",
+                        "days_since_team_change": days_since_tx,
+                        "games_with_current_team": 0
+                    }
+
+        return global_assignments
+
+    def get_player_team_as_of(self, person_id: str, as_of_date: Any) -> Optional[str]:
+        """Looks up a player's canonical team_id as of a target date."""
+        universe = self.get_global_roster_universe(as_of_date)
+        info = universe.get(str(person_id))
+        return info.get("team_id") if info else None
 
     def get_active_roster_universe(
         self,
@@ -196,175 +359,23 @@ class RosterService:
         Constructs the canonical pregame eligible player universe for a team as-of target date D.
         Strictly leakage-safe: utilizes historical games strictly before as_of_date and
         chronological 2026 offseason transaction state.
+        Ensures players are assigned strictly to their MOST RECENT team without historical contamination.
         """
         team_info = normalize_team(team_identifier)
-        team_id = team_info["id"]
-        team_code = team_info["code"]
-        team_name = team_info["name"]
+        target_team_id = team_info["id"]
+        target_team_code = team_info["code"]
+        target_team_name = team_info["name"]
 
-        self._init_player_maps()
-        df_tx = self.load_transactions()
+        global_assignments = self.get_global_roster_universe(as_of_date)
 
-        # Check if as_of_date reflects post-2026-offseason state (2026-07-01 onwards)
-        dt_target = datetime.strptime(str(as_of_date)[:10], "%Y-%m-%d")
-        is_post_offseason_2026 = dt_target >= datetime(2026, 7, 1)
+        # Filter players strictly belonging to target_team_id
+        team_roster: List[Dict[str, Any]] = []
+        for p in global_assignments.values():
+            if p.get("team_id") == target_team_id:
+                p["team_code"] = target_team_code
+                p["team_name"] = target_team_name
+                team_roster.append(p)
 
-        # 1. Query recent historical rotation players for this team strictly before as_of_date
-        con = self.conn or duckdb.connect()
-        cutoff_date = str(as_of_date)[:10]
-
-        try:
-            # Query players who logged minutes for this team in the most recent active window before cutoff
-            hist_query = f"""
-            WITH player_team_games AS (
-                SELECT 
-                    personId AS person_id,
-                    playerteamId AS team_id,
-                    TRY_CAST(SUBSTRING(gameDateTimeEst, 1, 10) AS DATE) AS game_date,
-                    TRY_CAST(numMinutes AS DOUBLE) AS minutes,
-                    TRY_CAST(points AS DOUBLE) AS points,
-                    TRY_CAST(reboundsTotal AS DOUBLE) AS rebounds,
-                    TRY_CAST(assists AS DOUBLE) AS assists
-                FROM '{self.parquet_path}'
-                WHERE playerteamId = '{team_id}'
-                  AND TRY_CAST(SUBSTRING(gameDateTimeEst, 1, 10) AS DATE) < '{cutoff_date}'
-            ),
-            player_agg AS (
-                SELECT 
-                    person_id,
-                    COUNT(*) as games_with_team,
-                    MAX(game_date) as last_game_date,
-                    AVG(minutes) as avg_minutes,
-                    AVG(points) as avg_points,
-                    AVG(rebounds) as avg_rebounds,
-                    AVG(assists) as avg_assists
-                FROM player_team_games
-                GROUP BY person_id
-            )
-            SELECT *
-            FROM player_agg
-            WHERE games_with_team >= 1
-            ORDER BY last_game_date DESC, avg_minutes DESC
-            """
-            hist_players_df = con.execute(hist_query).df()
-        except Exception as e:
-            logger.warning(f"Error querying historical roster: {e}")
-            hist_players_df = pd.DataFrame()
-        finally:
-            if self.conn is None:
-                con.close()
-
-        # Build active roster dictionary keyed by person_id
-        active_roster: Dict[str, Dict[str, Any]] = {}
-
-        # Populate from historical roster if player active within 18 months of cutoff
-        for _, row in hist_players_df.iterrows():
-            pid = str(row["person_id"])
-            last_date = str(row["last_game_date"])
-            dt_last = datetime.strptime(last_date[:10], "%Y-%m-%d")
-            days_since_last = (dt_target - dt_last).days
-
-            # Only retain players who played in the prior 18 months for this team
-            if days_since_last <= 550 and row["avg_minutes"] >= 5.0:
-                p_name = self.resolve_player_name(pid)
-                active_roster[pid] = {
-                    "person_id": pid,
-                    "player_name": p_name,
-                    "team_id": team_id,
-                    "team_code": team_code,
-                    "team_name": team_name,
-                    "is_transition_player": False,
-                    "prior_team_id": None,
-                    "prior_team_name": None,
-                    "transaction_category": "Established Roster",
-                    "transaction_date": None,
-                    "days_since_team_change": days_since_last,
-                    "games_with_current_team": int(row["games_with_team"]),
-                    "historical_avg_minutes": float(row["avg_minutes"]),
-                    "historical_avg_points": float(row["avg_points"]),
-                    "historical_avg_rebounds": float(row["avg_rebounds"]),
-                    "historical_avg_assists": float(row["avg_assists"])
-                }
-
-        # 2. Apply 2026 Offseason Transactions if target date is in the 2026-27 season
-        if is_post_offseason_2026 and len(df_tx) > 0:
-            # A. Process Departures (Remove players leaving the team)
-            departures = self.get_team_departures(team_identifier)
-            for dep in departures:
-                pid = dep["person_id"]
-                if pid in active_roster:
-                    del active_roster[pid]
-
-            # B. Process Additions (Add players arriving at the team)
-            additions = self.get_team_additions(team_identifier)
-            for add in additions:
-                pid = add["person_id"]
-                p_name = add["Player"]
-                tx_desc = add.get("Transaction", "")
-                
-                # Deduce prior team from transaction text (e.g. "Trade with Raptors", "Free agency to Lakers")
-                prior_team_name = None
-                prior_team_id = None
-                for candidate_t in df_tx["Team"].unique():
-                    if candidate_t != team_name and candidate_t.split()[-1].lower() in tx_desc.lower():
-                        try:
-                            c_info = normalize_team(candidate_t)
-                            prior_team_name = c_info["name"]
-                            prior_team_id = c_info["id"]
-                            break
-                        except Exception:
-                            pass
-
-                # Calculate days since trade (from 2026-07-01 to game date)
-                tx_dt = datetime(2026, 7, 1)
-                days_since_tx = max(0, (dt_target - tx_dt).days)
-
-                active_roster[pid] = {
-                    "person_id": pid,
-                    "player_name": p_name,
-                    "team_id": team_id,
-                    "team_code": team_code,
-                    "team_name": team_name,
-                    "is_transition_player": True,
-                    "prior_team_id": prior_team_id,
-                    "prior_team_name": prior_team_name,
-                    "transaction_category": "Additions",
-                    "transaction_date": "2026-07-01",
-                    "days_since_team_change": days_since_tx,
-                    "games_with_current_team": 0, # Zero games with new franchise prior to season opener
-                    "historical_avg_minutes": 25.0, # Baseline prior rotation weight
-                    "historical_avg_points": 12.0,
-                    "historical_avg_rebounds": 4.0,
-                    "historical_avg_assists": 2.5
-                }
-
-            # C. Process Re-signings (Ensure key re-signed core players remain on active roster)
-            re_signings = [t for t in self.get_team_transactions(team_identifier) if t.get("Category") == "Re-signing"]
-            for rs in re_signings:
-                pid = rs["person_id"]
-                p_name = rs["Player"]
-                if pid not in active_roster:
-                    active_roster[pid] = {
-                        "person_id": pid,
-                        "player_name": p_name,
-                        "team_id": team_id,
-                        "team_code": team_code,
-                        "team_name": team_name,
-                        "is_transition_player": False,
-                        "prior_team_id": None,
-                        "prior_team_name": None,
-                        "transaction_category": "Re-signing",
-                        "transaction_date": "2026-07-01",
-                        "days_since_team_change": 0,
-                        "games_with_current_team": 30,
-                        "historical_avg_minutes": 22.0,
-                        "historical_avg_points": 10.0,
-                        "historical_avg_rebounds": 4.0,
-                        "historical_avg_assists": 2.0
-                    }
-
-        # Convert to sorted list by expected rotation minutes
-        roster_list = list(active_roster.values())
-        roster_list.sort(key=lambda x: x.get("historical_avg_minutes", 0.0), reverse=True)
-
-        return roster_list[:max_players]
+        # Sort by expected rotation weight (recent average minutes)
+        team_roster.sort(key=lambda x: x.get("historical_avg_minutes", 0.0), reverse=True)
+        return team_roster[:max_players]

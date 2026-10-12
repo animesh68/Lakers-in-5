@@ -7,7 +7,10 @@ from typing import List, Dict, Any, Tuple, Optional
 import os
 import pandas as pd
 import numpy as np
-import duckdb
+try:
+    import duckdb
+except Exception:
+    duckdb = None
 from src.models.preprocessing import get_feature_columns, METADATA_COLUMNS, TARGET_COLUMNS
 from src.utils.logging import logger
 

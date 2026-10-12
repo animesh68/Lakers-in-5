@@ -9,7 +9,10 @@ from typing import Dict, Any, Optional, Tuple, List
 from datetime import datetime, date, timedelta
 import pandas as pd
 import numpy as np
-import duckdb
+try:
+    import duckdb
+except Exception:
+    duckdb = None
 
 from src.lake.duckdb_client import DuckDBClient
 from src.features.elo import EloCalculator
@@ -86,7 +89,7 @@ class ProductionFeatureService:
               AND TRY_CAST(homeScore AS DOUBLE) IS NOT NULL
             ORDER BY game_date, game_id
             """
-            historical_games = self.client.conn.execute(query).df()
+            historical_games = self.client.query_df(query)
             
             calculator = EloCalculator(k_factor=20.0, home_advantage=100.0, season_reversion=0.25)
             # Replay all historical games strictly prior to cutoff_date
@@ -152,7 +155,7 @@ class ProductionFeatureService:
         ORDER BY TRY_CAST(SUBSTRING(tgs.gameDateTimeEst, 1, 10) AS DATE) DESC, tgs.gameId DESC
         LIMIT 10
         """
-        logs = self.client.conn.execute(query).df()
+        logs = self.client.query_df(query)
         
         metrics = {}
         if len(logs) == 0:
@@ -221,7 +224,7 @@ class ProductionFeatureService:
           ) = {target_season}
         ORDER BY game_date DESC
         """
-        dates_df = self.client.conn.execute(query).df()
+        dates_df = self.client.query_df(query)
         
         if len(dates_df) == 0:
             return {
@@ -312,7 +315,7 @@ class ProductionFeatureService:
         FROM player_recent
         WHERE p_count > 0 AND (p_min_5 >= {min_rotation_minutes} OR p_min_5 IS NULL)
         """
-        df = self.client.conn.execute(query).df()
+        df = self.client.query_df(query)
         
         if len(df) == 0 or pd.isna(df["rotation_points_5"].iloc[0]):
             return {

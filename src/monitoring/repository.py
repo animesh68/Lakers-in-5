@@ -9,29 +9,40 @@ import json
 from datetime import datetime, date
 from typing import Optional, List, Dict, Any
 import pandas as pd
-import duckdb
+try:
+    import duckdb
+except Exception:
+    duckdb = None
 from sqlalchemy import select, update, delete, and_, or_, desc
 from sqlalchemy.orm import Session
 
-from src.monitoring.store import PredictionRecord, PredictionORM, Base
+from src.monitoring.store import (
+    PredictionRecord,
+    PredictionORM,
+    PlayerShadowPredictionRecord,
+    PlayerShadowPredictionORM,
+    Base,
+)
 from src.utils.db import get_engine, get_db_session, test_connection
 from src.utils.logging import logger
 
 class PredictionRepository:
     """
-    Unified repository interface for prediction records.
+    Unified repository interface for prediction records and player shadow prediction records.
     Automatically initializes tables on startup and supports both relational DB and local analytical lakehouse fallback.
     """
     def __init__(
         self,
         db_url: Optional[str] = None,
         fallback_dir: Optional[str] = None,
-        use_db: Optional[bool] = None
+        use_db: Optional[bool] = None,
+        parquet_player_shadow_path: Optional[str] = None
     ):
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         self.fallback_dir = fallback_dir or os.path.join(base_dir, "data", "monitoring")
         os.makedirs(self.fallback_dir, exist_ok=True)
         self.fallback_parquet_path = os.path.join(self.fallback_dir, "predictions.parquet")
+        self.player_shadow_parquet_path = parquet_player_shadow_path or os.path.join(self.fallback_dir, "player_shadow_predictions.parquet")
         
         self.use_db = False
         self.engine = None
@@ -208,6 +219,9 @@ class PredictionRepository:
 
         df = self._load_parquet()
         if not df.empty:
+            for col in ["outcome_recorded_at", "updated_at", "status"]:
+                if col in df.columns:
+                    df[col] = df[col].astype("object")
             for upd in updates:
                 pid = upd["prediction_id"]
                 mask = df["prediction_id"] == pid
@@ -220,8 +234,20 @@ class PredictionRepository:
                     df.loc[mask, "outcome_recorded_at"] = datetime.utcnow()
                     df.loc[mask, "updated_at"] = datetime.utcnow()
                     updated_count += 1
-            df.to_parquet(self.fallback_parquet_path, index=False)
+            self._write_df_to_parquet(df, self.fallback_parquet_path)
         return updated_count
+
+    def _write_df_to_parquet(self, df: pd.DataFrame, path: str):
+        """Writes DataFrame to Parquet with DuckDB fallback when pyarrow DLL is unavailable."""
+        try:
+            df.to_parquet(path, index=False)
+        except Exception:
+            import duckdb
+            con = duckdb.connect()
+            con.register("df_to_save", df)
+            p_sql = path.replace(os.sep, "/")
+            con.execute(f"COPY df_to_save TO '{p_sql}' (FORMAT PARQUET)")
+            con.close()
 
     def _save_to_parquet(self, record: PredictionRecord) -> PredictionRecord:
         """Saves or updates a record in the local Parquet file."""
@@ -236,16 +262,32 @@ class PredictionRepository:
                 df = df[df["prediction_id"] != record.prediction_id]
             df = pd.concat([df, new_row], ignore_index=True)
 
-        df.to_parquet(self.fallback_parquet_path, index=False)
+        self._write_df_to_parquet(df, self.fallback_parquet_path)
         return record
+
+    def _write_df_to_parquet(self, df: pd.DataFrame, path: str):
+        """Writes dataframe to parquet using Polars or Pandas."""
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        try:
+            import polars as pl
+            pl.from_pandas(df).write_parquet(path)
+        except Exception:
+            try:
+                df.to_parquet(path, index=False)
+            except Exception as e:
+                logger.error(f"Failed to write parquet to {path}: {e}")
 
     def _load_parquet(self) -> pd.DataFrame:
         """Loads predictions from local Parquet."""
         if os.path.exists(self.fallback_parquet_path):
             try:
-                return pd.read_parquet(self.fallback_parquet_path)
-            except Exception as e:
-                logger.warning(f"Error reading {self.fallback_parquet_path}: {e}")
+                import polars as pl
+                return pl.read_parquet(self.fallback_parquet_path).to_pandas()
+            except Exception:
+                try:
+                    return pd.read_parquet(self.fallback_parquet_path)
+                except Exception as e:
+                    logger.warning(f"Error reading {self.fallback_parquet_path}: {e}")
         return pd.DataFrame()
 
     def _orm_to_record(self, orm: PredictionORM) -> PredictionRecord:
@@ -283,3 +325,217 @@ class PredictionRepository:
         row_dict = row.to_dict()
         cleaned = {k: (None if pd.isna(v) else v) for k, v in row_dict.items()}
         return PredictionRecord(**cleaned)
+
+    # -------------------------------------------------------------------------
+    # Player Shadow Prediction Logging & Retrieval Methods
+    # -------------------------------------------------------------------------
+
+    def save_player_shadow_prediction(self, record: PlayerShadowPredictionRecord) -> PlayerShadowPredictionRecord:
+        """
+        Saves a single player shadow prediction record idempotently.
+        """
+        return self.save_player_shadow_predictions([record])[0]
+
+    def save_player_shadow_predictions(self, records: List[PlayerShadowPredictionRecord]) -> List[PlayerShadowPredictionRecord]:
+        """
+        Batch saves player shadow prediction records idempotently.
+        """
+        if not records:
+            return []
+
+        if self.use_db and self.engine:
+            try:
+                with get_db_session(self.engine) as session:
+                    for rec in records:
+                        existing = session.execute(
+                            select(PlayerShadowPredictionORM).where(
+                                and_(
+                                    PlayerShadowPredictionORM.game_id == rec.game_id,
+                                    PlayerShadowPredictionORM.player_id == rec.player_id
+                                )
+                            )
+                        ).scalars().first()
+
+                        if existing:
+                            for k, v in rec.model_dump(exclude={"created_at"}).items():
+                                if k == "game_date" and isinstance(v, str):
+                                    v = datetime.strptime(v, "%Y-%m-%d").date()
+                                setattr(existing, k, v)
+                            existing.updated_at = datetime.utcnow()
+                        else:
+                            data = rec.model_dump()
+                            if isinstance(data["game_date"], str):
+                                data["game_date"] = datetime.strptime(data["game_date"], "%Y-%m-%d").date()
+                            orm_obj = PlayerShadowPredictionORM(**data)
+                            session.add(orm_obj)
+                return records
+            except Exception as e:
+                logger.error(f"Failed to save player shadow predictions to DB: {e}. Falling back to Parquet.")
+
+        return self._save_player_shadow_to_parquet(records)
+
+    def get_player_shadow_predictions(
+        self,
+        status: Optional[str] = None,
+        game_id: Optional[str] = None,
+        player_id: Optional[str] = None,
+        limit: int = 10000
+    ) -> List[PlayerShadowPredictionRecord]:
+        """
+        Retrieves player shadow predictions matching given criteria.
+        """
+        if self.use_db and self.engine:
+            try:
+                with get_db_session(self.engine) as session:
+                    stmt = select(PlayerShadowPredictionORM)
+                    conditions = []
+                    if status:
+                        conditions.append(PlayerShadowPredictionORM.prediction_status == status)
+                    if game_id:
+                        conditions.append(PlayerShadowPredictionORM.game_id == game_id)
+                    if player_id:
+                        conditions.append(PlayerShadowPredictionORM.player_id == player_id)
+                    if conditions:
+                        stmt = stmt.where(and_(*conditions))
+                    stmt = stmt.order_by(desc(PlayerShadowPredictionORM.prediction_timestamp)).limit(limit)
+                    results = session.execute(stmt).scalars().all()
+                    return [self._orm_to_player_shadow_record(r) for r in results]
+            except Exception as e:
+                logger.error(f"Error querying player shadow predictions from DB: {e}")
+
+        df = self._load_player_shadow_parquet()
+        if df.empty:
+            return []
+
+        if status and "prediction_status" in df.columns:
+            df = df[df["prediction_status"] == status]
+        if game_id and "game_id" in df.columns:
+            df = df[df["game_id"] == game_id]
+        if player_id and "player_id" in df.columns:
+            df = df[df["player_id"] == player_id]
+
+        if df.empty:
+            return []
+
+        records = [self._row_to_player_shadow_record(row) for _, row in df.head(limit).iterrows()]
+        return records
+
+    def update_player_shadow_outcome(
+        self,
+        prediction_id: str,
+        actual_minutes: float,
+        actual_points: float,
+        actual_rebounds: float,
+        actual_assists: float
+    ) -> bool:
+        """
+        Updates actual box score outcome for a player shadow prediction record.
+        """
+        now = datetime.utcnow()
+        if self.use_db and self.engine:
+            try:
+                with get_db_session(self.engine) as session:
+                    stmt = (
+                        update(PlayerShadowPredictionORM)
+                        .where(PlayerShadowPredictionORM.prediction_id == prediction_id)
+                        .values(
+                            actual_minutes=actual_minutes,
+                            actual_points=actual_points,
+                            actual_rebounds=actual_rebounds,
+                            actual_assists=actual_assists,
+                            prediction_status="evaluated",
+                            outcome_recorded_at=now,
+                            updated_at=now
+                        )
+                    )
+                    res = session.execute(stmt)
+                    return res.rowcount > 0
+            except Exception as e:
+                logger.error(f"Failed to update player shadow outcome in DB: {e}")
+
+        df = self._load_player_shadow_parquet()
+        if not df.empty and "prediction_id" in df.columns:
+            mask = df["prediction_id"] == prediction_id
+            if mask.sum() > 0:
+                df.loc[mask, "actual_minutes"] = actual_minutes
+                df.loc[mask, "actual_points"] = actual_points
+                df.loc[mask, "actual_rebounds"] = actual_rebounds
+                df.loc[mask, "actual_assists"] = actual_assists
+                df.loc[mask, "prediction_status"] = "evaluated"
+                df.loc[mask, "outcome_recorded_at"] = now
+                df.loc[mask, "updated_at"] = now
+                self._write_df_to_parquet(df, self.player_shadow_parquet_path)
+                return True
+        return False
+
+    def _save_player_shadow_to_parquet(self, records: List[PlayerShadowPredictionRecord]) -> List[PlayerShadowPredictionRecord]:
+        """Saves player shadow records to local fallback Parquet."""
+        df = self._load_player_shadow_parquet()
+        new_rows = pd.DataFrame([r.model_dump() for r in records])
+
+        if df.empty:
+            df = new_rows
+        else:
+            # Deduplicate by (game_id, player_id) or prediction_id
+            keys = set(zip(new_rows["game_id"], new_rows["player_id"]))
+            if "game_id" in df.columns and "player_id" in df.columns:
+                existing_keys = list(zip(df["game_id"], df["player_id"]))
+                mask = [k not in keys for k in existing_keys]
+                df = df[mask]
+            df = pd.concat([df, new_rows], ignore_index=True)
+
+        self._write_df_to_parquet(df, self.player_shadow_parquet_path)
+        return records
+
+    def _load_player_shadow_parquet(self) -> pd.DataFrame:
+        """Loads player shadow predictions from local Parquet."""
+        if os.path.exists(self.player_shadow_parquet_path):
+            try:
+                import polars as pl
+                return pl.read_parquet(self.player_shadow_parquet_path).to_pandas()
+            except Exception:
+                try:
+                    return pd.read_parquet(self.player_shadow_parquet_path)
+                except Exception as e:
+                    logger.warning(f"Error reading {self.player_shadow_parquet_path}: {e}")
+        return pd.DataFrame()
+
+    def _orm_to_player_shadow_record(self, orm: PlayerShadowPredictionORM) -> PlayerShadowPredictionRecord:
+        return PlayerShadowPredictionRecord(
+            prediction_id=orm.prediction_id,
+            game_id=orm.game_id,
+            game_date=str(orm.game_date),
+            player_id=orm.player_id,
+            player_name=orm.player_name,
+            team_id=orm.team_id,
+            team_code=orm.team_code,
+            opponent_team_id=orm.opponent_team_id,
+            opponent_team_code=orm.opponent_team_code,
+            production_model_version=orm.production_model_version,
+            shadow_model_version=orm.shadow_model_version,
+            role=orm.role,
+            predicted_minutes_production=orm.predicted_minutes_production,
+            predicted_minutes_shadow=orm.predicted_minutes_shadow,
+            predicted_points_production=orm.predicted_points_production,
+            predicted_points_shadow=orm.predicted_points_shadow,
+            predicted_rebounds_production=orm.predicted_rebounds_production,
+            predicted_rebounds_shadow=orm.predicted_rebounds_shadow,
+            predicted_assists_production=orm.predicted_assists_production,
+            predicted_assists_shadow=orm.predicted_assists_shadow,
+            feature_contract_version=orm.feature_contract_version,
+            prediction_timestamp=orm.prediction_timestamp,
+            prediction_status=orm.prediction_status,
+            actual_minutes=orm.actual_minutes,
+            actual_points=orm.actual_points,
+            actual_rebounds=orm.actual_rebounds,
+            actual_assists=orm.actual_assists,
+            outcome_recorded_at=orm.outcome_recorded_at,
+            created_at=orm.created_at,
+            updated_at=orm.updated_at
+        )
+
+    def _row_to_player_shadow_record(self, row: pd.Series) -> PlayerShadowPredictionRecord:
+        row_dict = row.to_dict()
+        cleaned = {k: (None if pd.isna(v) else v) for k, v in row_dict.items()}
+        return PlayerShadowPredictionRecord(**cleaned)
+

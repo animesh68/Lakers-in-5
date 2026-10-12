@@ -8,6 +8,10 @@ import re
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime, date
 import pandas as pd
+try:
+    import duckdb
+except Exception:
+    duckdb = None
 import pypdf
 from src.inference.schemas import ScheduledGame
 from src.utils.logging import logger
@@ -96,8 +100,21 @@ class ScheduleService:
             
         if os.path.exists(self.cache_path) and not force_reparse:
             logger.info(f"Loading 2026-27 schedule from cache: {self.cache_path}")
-            self._schedule_df = pd.read_parquet(self.cache_path)
-            return self._schedule_df
+            try:
+                import polars as pl
+                self._schedule_df = pl.read_parquet(self.cache_path).to_pandas()
+                return self._schedule_df
+            except Exception:
+                try:
+                    self._schedule_df = pd.read_parquet(self.cache_path)
+                    return self._schedule_df
+                except Exception:
+                    if duckdb is not None:
+                        con = duckdb.connect()
+                        p_sql = self.cache_path.replace(os.sep, "/")
+                        self._schedule_df = con.execute(f"SELECT * FROM '{p_sql}'").df()
+                        con.close()
+                        return self._schedule_df
             
         logger.info(f"Parsing 2026-27 schedule from PDF: {self.pdf_path}")
         if not os.path.exists(self.pdf_path):

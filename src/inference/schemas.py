@@ -103,7 +103,7 @@ class HealthReportResponse(BaseModel):
     reasons: List[str]
     performance: Dict[str, Any]
     feature_drift: Dict[str, Any]
-    prediction_distribution: Dict[str, Any]
+    prediction_distribution: Optional[Dict[str, Any]] = None
 
 class RetrainingDecisionResponse(BaseModel):
     decision: str

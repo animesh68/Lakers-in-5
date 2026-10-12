@@ -1,0 +1,85 @@
+{
+  "model_version": "PlayerSuite-v1.1-c1-shadow",
+  "feature_schema_version": "v1.1-player-role-stratified",
+  "status": "FROZEN_SHADOW_CANDIDATE",
+  "frozen": true,
+  "is_shadow": true,
+  "created_at": "2026-10-04T09:22:52.136738",
+  "training_date": "2026-10-04",
+  "training_cutoff": "2025-06-30",
+  "training_data_range": [
+    "2021-10-01",
+    "2025-06-30"
+  ],
+  "training_samples": 114009,
+  "alpha": 15.0,
+  "feature_count": 24,
+  "feature_contract": [
+    "player_min_avg_5",
+    "player_min_avg_10",
+    "player_min_season_avg",
+    "player_pts_per_min_10",
+    "player_reb_per_min_10",
+    "player_ast_per_min_10",
+    "player_ts_pct_10",
+    "player_usage_pct_10",
+    "is_starter_ratio_10",
+    "player_games_played_season",
+    "is_home",
+    "days_since_last_game",
+    "is_b2b",
+    "team_pace_10",
+    "opponent_pace_10",
+    "opponent_def_rating_10",
+    "team_off_rating_10",
+    "is_team_change",
+    "days_since_team_change",
+    "games_with_current_team",
+    "prior_team_min_avg",
+    "prior_team_pts_per_min",
+    "prior_team_reb_per_min",
+    "prior_team_ast_per_min"
+  ],
+  "role_definitions": {
+    "star": {
+      "condition": "player_min_avg_10 >= 28.0 AND player_usage_pct_10 >= 0.24",
+      "description": "High-minute, high-usage primary creators"
+    },
+    "starter": {
+      "condition": "player_min_avg_10 >= 24.0 AND NOT (player_min_avg_10 >= 28.0 AND player_usage_pct_10 >= 0.24)",
+      "description": "Secondary creators and rotation starters"
+    },
+    "bench": {
+      "condition": "player_min_avg_10 < 24.0",
+      "description": "Reserve and rotation bench players"
+    }
+  },
+  "cold_start_behavior": "Unseen / rookie players default to LEAGUE_PRIORS (min_avg=18.5, usage_pct=0.18), automatically routing to bench tier until establishing rotation minutes.",
+  "models": {
+    "minutes": {
+      "name": "PlayerMinutes-Ridge-v1.1",
+      "artifact": "shadow_minutes_model.joblib",
+      "target": "target_minutes",
+      "alpha": 15.0
+    },
+    "points": {
+      "name": "PlayerPoints-RoleStratified-Ridge-v1.1",
+      "artifact": "shadow_points_model.joblib",
+      "target": "target_points",
+      "alpha": 15.0,
+      "sub_models": ["star", "starter", "bench"]
+    },
+    "rebounds": {
+      "name": "PlayerRebounds-Ridge-v1.1",
+      "artifact": "shadow_rebounds_model.joblib",
+      "target": "target_rebounds",
+      "alpha": 10.0
+    },
+    "assists": {
+      "name": "PlayerAssists-Ridge-v1.1",
+      "artifact": "shadow_assists_model.joblib",
+      "target": "target_assists",
+      "alpha": 10.0
+    }
+  }
+}

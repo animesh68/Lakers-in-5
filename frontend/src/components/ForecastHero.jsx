@@ -49,6 +49,17 @@ export default function ForecastHero({ prediction, loading, error, onRefresh, on
   };
 
   const opponentName = prediction.opponent_name || prediction.opponent_team || 'Opponent';
+  const opponentCode = prediction.opponent_team || 'OPP';
+
+  const awayTeamName = isHome ? opponentName : 'Los Angeles Lakers';
+  const awayTeamCode = isHome ? opponentCode : 'LAL';
+  const awayProb = isHome ? opponentProb : lakersProb;
+  const isAwayLakers = !isHome;
+
+  const homeTeamName = isHome ? 'Los Angeles Lakers' : opponentName;
+  const homeTeamCode = isHome ? 'LAL' : opponentCode;
+  const homeProb = isHome ? lakersProb : opponentProb;
+  const isHomeLakers = isHome;
 
   return (
     <div className="panel panel-gold-glow fade-in" style={{ padding: '36px 32px' }}>
@@ -88,7 +99,7 @@ export default function ForecastHero({ prediction, loading, error, onRefresh, on
         </div>
       </div>
 
-      {/* Matchup Header */}
+      {/* Matchup Header: Standard NBA Away @ Home */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: '1fr auto 1fr',
@@ -97,20 +108,20 @@ export default function ForecastHero({ prediction, loading, error, onRefresh, on
         gap: '24px',
         marginBottom: '32px'
       }}>
-        {/* Away Team */}
-        <div style={{ textAlign: isHome ? 'left' : 'right' }}>
+        {/* Left Column = Away Team */}
+        <div style={{ textAlign: 'left' }}>
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            {isHome ? 'Away Team' : 'Home Team'}
+            Away Team
           </div>
-          <div style={{ fontSize: '1.6rem', fontWeight: 800, color: isHome ? 'var(--text-primary)' : 'var(--gold-primary)', marginTop: '2px' }}>
-            {isHome ? opponentName : 'Los Angeles Lakers'}
+          <div style={{ fontSize: '1.6rem', fontWeight: 800, color: isAwayLakers ? 'var(--gold-primary)' : 'var(--text-primary)', marginTop: '2px' }}>
+            {awayTeamName}
           </div>
           <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-secondary)', marginTop: '4px' }}>
-            {isHome ? `${(opponentProb * 100).toFixed(1)}% Win Prob` : `${(lakersProb * 100).toFixed(1)}% Win Prob`}
+            {(awayProb * 100).toFixed(1)}% Win Prob
           </div>
         </div>
 
-        {/* VS Divider */}
+        {/* Center Divider = @ */}
         <div style={{
           width: '44px',
           height: '44px',
@@ -122,22 +133,22 @@ export default function ForecastHero({ prediction, loading, error, onRefresh, on
           justifyContent: 'center',
           fontFamily: 'var(--font-display)',
           fontWeight: 800,
-          fontSize: '0.85rem',
+          fontSize: '0.95rem',
           color: 'var(--text-muted)'
         }}>
-          VS
+          @
         </div>
 
-        {/* Home Team */}
-        <div style={{ textAlign: isHome ? 'right' : 'left' }}>
+        {/* Right Column = Home Team */}
+        <div style={{ textAlign: 'right' }}>
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            {isHome ? 'Home Team' : 'Away Team'}
+            Home Team
           </div>
-          <div style={{ fontSize: '1.6rem', fontWeight: 800, color: isHome ? 'var(--gold-primary)' : 'var(--text-primary)', marginTop: '2px' }}>
-            {isHome ? 'Los Angeles Lakers' : opponentName}
+          <div style={{ fontSize: '1.6rem', fontWeight: 800, color: isHomeLakers ? 'var(--gold-primary)' : 'var(--text-primary)', marginTop: '2px' }}>
+            {homeTeamName}
           </div>
           <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-secondary)', marginTop: '4px' }}>
-            {isHome ? `${(lakersProb * 100).toFixed(1)}% Win Prob` : `${(opponentProb * 100).toFixed(1)}% Win Prob`}
+            {(homeProb * 100).toFixed(1)}% Win Prob
           </div>
         </div>
       </div>
@@ -190,12 +201,12 @@ export default function ForecastHero({ prediction, loading, error, onRefresh, on
         {/* Probability Dual Bar */}
         <div style={{ width: '100%', maxWidth: '460px', marginTop: '14px' }}>
           <ProbabilityBar
-            homeProb={isHome ? lakersProb : opponentProb}
-            awayProb={isHome ? opponentProb : lakersProb}
-            homeLabel={isHome ? 'LAL' : prediction.opponent_team || 'OPP'}
-            awayLabel={isHome ? prediction.opponent_team || 'OPP' : 'LAL'}
-            isHomeLakers={isHome}
-            isAwayLakers={!isHome}
+            awayProb={awayProb}
+            homeProb={homeProb}
+            awayLabel={awayTeamCode}
+            homeLabel={homeTeamCode}
+            isAwayLakers={isAwayLakers}
+            isHomeLakers={isHomeLakers}
             height={12}
           />
         </div>

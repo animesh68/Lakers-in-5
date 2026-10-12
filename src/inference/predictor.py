@@ -23,7 +23,8 @@ from src.inference.schedule_service import ScheduleService, normalize_team, LAKE
 from src.inference.feature_service import ProductionFeatureService, MODEL_FEATURE_CONTRACT
 from src.monitoring.store import PredictionRecord
 from src.monitoring.repository import PredictionRepository
-from src.utils.logging import logger
+from src.monitoring.collector import metrics_collector
+from src.utils.logging import logger, log_event
 
 def compute_feature_hash(features_dict: Dict[str, Any]) -> str:
     """
@@ -103,17 +104,26 @@ class GamePredictor:
         if home_info["id"] == away_info["id"]:
             raise ValueError("Home team and away team must be distinct NBA teams.")
             
-        date_str = str(game_date)[:10]
+        t0 = datetime.utcnow()
+        log_event(
+            logger,
+            "prediction_started",
+            home_team=home_info["name"],
+            away_team=away_info["name"],
+            game_date=game_date,
+            model_type="game_outcome"
+        )
         
         # 1. Generate strictly pregame feature vector
         features_df = self.feature_service.generate_pregame_feature_vector(
             home_team_identifier=home_info["id"],
             away_team_identifier=away_info["id"],
-            target_game_date=date_str
+            target_game_date=game_date
         )
         
         # 2. Validate input schema contract
         if list(features_df.columns) != self.clf_feature_names:
+            metrics_collector.inc_counter("prediction_requests_total", labels={"model_type": "game", "status": "contract_error"})
             raise ValueError(
                 f"Feature contract mismatch! Expected {len(self.clf_feature_names)} columns, "
                 f"got {len(features_df.columns)}."
@@ -134,7 +144,7 @@ class GamePredictor:
         if persist:
             record = PredictionRecord(
                 game_id=game_id,
-                game_date=date_str,
+                game_date=game_date,
                 home_team=home_info["name"],
                 away_team=away_info["name"],
                 home_team_id=home_info["id"],
@@ -153,10 +163,26 @@ class GamePredictor:
             saved_record = self.repository.save_prediction(record)
             prediction_id = saved_record.prediction_id
 
+        duration_sec = (datetime.utcnow() - t0).total_seconds()
+        metrics_collector.inc_counter("prediction_requests_total", labels={"model_type": "game", "status": "success"})
+        metrics_collector.observe_histogram("prediction_duration_seconds", duration_sec, labels={"model_type": "game"})
+
+        log_event(
+            logger,
+            "prediction_completed",
+            game_id=game_id,
+            home_team=home_info["name"],
+            away_team=away_info["name"],
+            p_home_win=round(p_home_win, 4),
+            pred_margin=round(pred_margin, 2),
+            latency_ms=round(duration_sec * 1000, 2),
+            status="success"
+        )
+
         return GamePredictionResponse(
             prediction_id=prediction_id,
             game_id=game_id,
-            game_date=date_str,
+            game_date=game_date,
             home_team=home_info["name"],
             away_team=away_info["name"],
             home_team_id=home_info["id"],

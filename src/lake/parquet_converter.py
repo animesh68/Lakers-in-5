@@ -6,7 +6,10 @@ High-throughput, zero-data-loss conversion from raw CSVs to compressed columnar 
 import os
 import time
 from typing import Dict, Any, List
-import duckdb
+try:
+    import duckdb
+except Exception:
+    duckdb = None
 from src.utils.logging import logger
 
 class ParquetConverter:

@@ -1,64 +1,88 @@
+@charset "UTF-8";
+
+/* ==========================================================================
+   LAKERS IN 5 — DESIGN SYSTEM & TOKENS
+   Concept: "SPORTS EDITORIAL × NBA BROADCAST × MODERN PRODUCT DESIGN"
+   Color Ratio: 55% Warm Ivory, 25% Charcoal, 10-15% Lakers Purple, 5% Lakers Gold
+   ========================================================================== */
+
 :root {
-  /* Core Color Palette */
-  --bg-base: #08060D;
-  --bg-surface: #100C1B;
-  --bg-surface-elevated: #161224;
-  --bg-card: rgba(22, 18, 36, 0.7);
-  --bg-card-hover: rgba(30, 24, 48, 0.85);
-  --bg-card-active: rgba(38, 30, 60, 0.95);
+  /* Primary Surfaces (Mixed Light / Dark Rhythm) */
+  --surface-warm: #F5F1E8;       /* Warm Ivory (Primary 55%) */
+  --surface-warm-card: #FFFFFF;  /* Crisp Card Surface on Warm Light */
+  --surface-warm-subtle: #EBE5D8;/* Subtle Warm Neutral */
+  --surface-warm-border: #DDD6C6;/* Warm Accent Border */
+
+  /* Warm Editorial Palette (Dedicated Engine Page & Editorial Elements) */
+  --editorial-bg: #F4F0E7;        /* Warm ivory */
+  --editorial-card: #FFFFFF;      /* White */
+  --editorial-ink: #211E19;       /* Ink */
+  --editorial-gray: #746C60;      /* Warm gray */
+  --editorial-border: #D8D0C2;    /* Light border */
+  --editorial-purple: #552583;    /* Lakers purple */
+  --editorial-gold: #FDB927;      /* Lakers gold */
+  --editorial-lavender: #E8E4F1;  /* Pale lavender */
+  --editorial-pale-gold: #F7EAC6; /* Pale gold */
+  --editorial-terracotta: #A35C32;/* Muted terracotta */
+  --editorial-olive: #6E7650;     /* Muted olive */
+  --editorial-sand: #E9E2D5;      /* Pale sand */
   
-  /* Lakers Identity Accents */
-  --gold-primary: #FDB927;
-  --gold-hover: #ffc44d;
+  --surface-charcoal: #121015;   /* Deep Charcoal Black (25%) */
+  --surface-charcoal-card: #1A1720; /* Elevated Charcoal */
+  --surface-charcoal-subtle: #24202C;
+  --surface-charcoal-border: rgba(255, 255, 255, 0.12);
+
+  /* Lakers Showtime Accents (10-15% Purple, 5% Gold) */
+  --purple-primary: #552583;     /* Official Lakers Purple */
+  --purple-dark: #3A1A5E;        /* Deep Atmospheric Purple */
+  --purple-light: #7E38C4;       /* Accent Purple */
+  --purple-subtle: rgba(85, 37, 131, 0.08);
+  --purple-border: rgba(85, 37, 131, 0.25);
+
+  --gold-accent: #FDB927;        /* Official Lakers Gold */
+  --gold-vibrant: #FFC72C;       /* Highlight Gold */
   --gold-subtle: rgba(253, 185, 39, 0.12);
   --gold-border: rgba(253, 185, 39, 0.35);
-  
-  --purple-primary: #552583;
-  --purple-light: #7B3AB8;
-  --purple-subtle: rgba(85, 37, 131, 0.2);
-  --purple-border: rgba(123, 58, 184, 0.35);
 
-  /* Status Colors */
-  --emerald-success: #10B981;
-  --emerald-subtle: rgba(16, 185, 129, 0.12);
-  --emerald-border: rgba(16, 185, 129, 0.3);
+  /* Hardwood / Court / Neutral Tones */
+  --hardwood-accent: #C8A26B;    /* Warm Hardwood Tan */
+  --hardwood-subtle: rgba(200, 162, 107, 0.15);
+  --neutral-secondary: #6E6872;  /* Secondary Neutral Muted */
+  --neutral-dim: #9E98A4;        /* Dim Neutral */
 
-  --rose-danger: #F43F5E;
-  --rose-subtle: rgba(244, 63, 94, 0.12);
-  --rose-border: rgba(244, 63, 94, 0.3);
+  /* Light Surface Typography */
+  --text-dark-primary: #121015;  /* Deep Charcoal on Light */
+  --text-dark-secondary: #4A4550;
+  --text-dark-muted: #6E6872;
 
-  --amber-warning: #F59E0B;
-  --amber-subtle: rgba(245, 158, 11, 0.12);
-  --amber-border: rgba(245, 158, 11, 0.3);
+  /* Dark Surface Typography */
+  --text-light-primary: #FFFFFF;
+  --text-light-secondary: #E2DFE8;
+  --text-light-muted: #A39DAE;
 
-  /* Typography Colors */
-  --text-primary: #FFFFFF;
-  --text-secondary: #94A3B8;
-  --text-muted: #64748B;
-  --text-dim: #475569;
-
-  /* Borders & Dividers */
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-medium: rgba(255, 255, 255, 0.14);
-  --border-strong: rgba(255, 255, 255, 0.22);
-
-  /* Fonts */
-  --font-display: 'Outfit', sans-serif;
-  --font-body: 'Plus Jakarta Sans', sans-serif;
+  /* Typography Stacks */
+  --font-display: 'Oswald', 'Barlow Condensed', sans-serif;
+  --font-body: 'Inter', 'Barlow', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
-  /* Radii */
-  --radius-xs: 6px;
-  --radius-sm: 10px;
-  --radius-md: 16px;
-  --radius-lg: 24px;
+  /* Border Radii */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
   --radius-full: 9999px;
 
   /* Shadows */
-  --shadow-subtle: 0 4px 20px -2px rgba(0, 0, 0, 0.5);
-  --shadow-card: 0 12px 32px -8px rgba(0, 0, 0, 0.65);
-  --shadow-gold: 0 8px 24px -4px rgba(253, 185, 39, 0.25);
+  --shadow-sm: 0 2px 8px rgba(18, 16, 21, 0.05);
+  --shadow-md: 0 8px 24px rgba(18, 16, 21, 0.08);
+  --shadow-lg: 0 16px 36px rgba(18, 16, 21, 0.12);
+  --shadow-dark: 0 16px 40px rgba(0, 0, 0, 0.6);
 }
+
+/* ==========================================================================
+   GLOBAL RESET
+   ========================================================================== */
 
 * {
   box-sizing: border-box;
@@ -66,232 +90,283 @@
   padding: 0;
 }
 
+html {
+  scroll-behavior: smooth;
+  color-scheme: light dark;
+}
+
 body {
-  background-color: var(--bg-base);
-  color: var(--text-primary);
+  background-color: var(--surface-warm);
+  color: var(--text-dark-primary);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
   overflow-x: hidden;
-  background-image: 
-    radial-gradient(ellipse 70% 45% at 50% -10%, rgba(85, 37, 131, 0.22), transparent 70%),
-    radial-gradient(ellipse 50% 30% at 85% 80%, rgba(253, 185, 39, 0.06), transparent 60%);
-  background-attachment: fixed;
 }
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--bg-base);
+  background: var(--surface-warm);
 }
 ::-webkit-scrollbar-thumb {
-  background: #231c36;
-  border-radius: 3px;
+  background: var(--surface-warm-border);
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #392c57;
+  background: var(--purple-primary);
 }
 
-/* Typography Utilities */
-h1, h2, h3, h4, h5, h6 {
+/* ==========================================================================
+   TYPOGRAPHY UTILITIES
+   ========================================================================== */
+
+.font-display {
   font-family: var(--font-display);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--text-primary);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-.mono {
+.font-mono {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
-/* Panels & Cards */
-.panel {
-  background: var(--bg-card);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
-  transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
 }
 
-.panel:hover {
-  border-color: var(--border-medium);
+/* Section Header Motif */
+.section-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--purple-primary);
+  margin-bottom: 8px;
 }
 
-.panel-subtle {
-  background: rgba(255, 255, 255, 0.025);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+.section-eyebrow.light {
+  color: var(--gold-accent);
 }
 
-.panel-gold-glow {
-  position: relative;
-  background: linear-gradient(180deg, rgba(253, 185, 39, 0.04) 0%, rgba(22, 18, 36, 0.75) 100%);
-  border: 1px solid var(--gold-border);
+.section-title {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.05;
+  text-transform: uppercase;
+  color: var(--text-dark-primary);
+  margin-bottom: 12px;
 }
 
-/* Buttons */
-.btn {
+.section-title.light {
+  color: var(--text-light-primary);
+}
+
+.section-desc {
+  font-size: 1.05rem;
+  color: var(--text-dark-secondary);
+  line-height: 1.6;
+  max-width: 650px;
+}
+
+.section-desc.light {
+  color: var(--text-light-secondary);
+}
+
+/* ==========================================================================
+   BUTTONS & CTAS
+   ========================================================================== */
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--gold-accent);
+  color: var(--surface-charcoal);
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 14px 28px;
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 250ms cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 14px rgba(253, 185, 39, 0.25);
+}
+
+.btn-primary:hover {
+  background: var(--gold-vibrant);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(253, 185, 39, 0.4);
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #FFFFFF;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 14px 28px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  cursor: pointer;
+  text-decoration: none;
+  backdrop-filter: blur(10px);
+  transition: all 250ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: var(--gold-accent);
+  color: var(--gold-accent);
+  transform: translateY(-2px);
+}
+
+/* Light Surface Secondary Button */
+.btn-outline-dark {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 0.9rem;
-  padding: 10px 18px;
-  border-radius: var(--radius-sm);
-  border: 1px solid transparent;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  text-decoration: none;
-  line-height: 1.2;
-}
-
-.btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-  transform: none !important;
-}
-
-.btn-gold {
-  background: var(--gold-primary);
-  color: #0c0817;
-  font-weight: 700;
-  box-shadow: var(--shadow-gold);
-}
-.btn-gold:hover:not(:disabled) {
-  background: var(--gold-hover);
-  transform: translateY(-1px);
-}
-
-.btn-secondary {
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--text-primary);
-  border-color: var(--border-subtle);
-}
-.btn-secondary:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: var(--border-medium);
-}
-
-.btn-ghost {
   background: transparent;
-  color: var(--text-secondary);
-}
-.btn-ghost:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-primary);
+  color: var(--text-dark-primary);
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 10px 20px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--surface-warm-border);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 200ms ease;
 }
 
-/* Badges */
-.badge {
+.btn-outline-dark:hover {
+  border-color: var(--purple-primary);
+  color: var(--purple-primary);
+  background: var(--purple-subtle);
+}
+
+/* ==========================================================================
+   CARDS & SURFACES
+   ========================================================================== */
+
+/* Light Card on Warm Ivory */
+.card-warm {
+  background: var(--surface-warm-card);
+  border: 1px solid var(--surface-warm-border);
+  border-radius: var(--radius-md);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 250ms ease, box-shadow 250ms ease, border-color 250ms ease;
+}
+
+.card-warm:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--hardwood-accent);
+}
+
+/* Dark Card on Charcoal */
+.card-charcoal {
+  background: var(--surface-charcoal-card);
+  border: 1px solid var(--surface-charcoal-border);
+  border-radius: var(--radius-md);
+  padding: 24px;
+  box-shadow: var(--shadow-dark);
+}
+
+/* Badge System */
+.badge-gold {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-size: 0.72rem;
+  gap: 6px;
+  background: var(--gold-subtle);
+  color: #B47800;
+  border: 1px solid var(--gold-border);
+  font-family: var(--font-display);
+  font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   padding: 4px 10px;
   border-radius: var(--radius-full);
 }
 
-.badge-gold {
-  background: var(--gold-subtle);
-  color: var(--gold-primary);
-  border: 1px solid var(--gold-border);
-}
-
 .badge-purple {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   background: var(--purple-subtle);
-  color: #c084fc;
+  color: var(--purple-primary);
   border: 1px solid var(--purple-border);
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
 }
 
-.badge-success {
-  background: var(--emerald-subtle);
-  color: #34d399;
-  border: 1px solid var(--emerald-border);
+/* Responsive Container */
+.container {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0 24px;
 }
 
-.badge-danger {
-  background: var(--rose-subtle);
-  color: #fb7185;
-  border: 1px solid var(--rose-border);
-}
-
-.badge-neutral {
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-subtle);
-}
-
-/* Status Dot Pulse */
-.status-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background-color: var(--emerald-success);
-  box-shadow: 0 0 8px var(--emerald-success);
-}
-
-/* Animations */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.fade-in {
-  animation: fadeIn 0.3s ease-out forwards;
-}
-
-.spin {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-/* Form Elements */
-select, input[type="text"], input[type="date"] {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-primary);
-  border-radius: var(--radius-sm);
-  padding: 10px 14px;
-  font-size: 0.9rem;
-  font-family: inherit;
-  outline: none;
-  transition: border-color 0.2s ease, background 0.2s ease;
-}
-
-select:focus, input[type="text"]:focus, input[type="date"]:focus {
-  border-color: var(--gold-border);
-  background: rgba(255, 255, 255, 0.07);
-}
-
-option {
-  background: #120e1f;
-  color: #ffffff;
-}
-
-/* Responsive Utilities */
 @media (max-width: 768px) {
-  .hero-metric-text {
-    font-size: 3rem !important;
+  .container {
+    padding: 0 16px;
+  }
+  .engine-hero-grid {
+    grid-template-columns: 1fr !important;
+    gap: 32px !important;
+  }
+  .engine-split-grid {
+    grid-template-columns: 1fr !important;
+    gap: 32px !important;
+  }
+}
+
+/* Animation utilities */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 350ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

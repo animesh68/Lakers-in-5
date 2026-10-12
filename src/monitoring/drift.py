@@ -87,7 +87,14 @@ class DataDriftDetector:
                 try:
                     df = pd.read_parquet(self.ref_path, columns=cols_to_load)
                 except Exception:
-                    df = pd.read_parquet(self.ref_path)
+                    try:
+                        import duckdb
+                        ref_sql = self.ref_path.replace(os.sep, "/")
+                        df = duckdb.connect().execute(f"SELECT {', '.join(cols_to_load)} FROM '{ref_sql}'").df()
+                    except Exception:
+                        import duckdb
+                        ref_sql = self.ref_path.replace(os.sep, "/")
+                        df = duckdb.connect().execute(f"SELECT * FROM '{ref_sql}'").df()
                 # Filter to development seasons (e.g., 2015-2024)
                 dev_df = df[df["season"].isin(range(2015, 2025))]
                 if dev_df.empty:
@@ -237,12 +244,68 @@ class DataDriftDetector:
         if abs(m_mean) > 8.0 and len(margins) >= 20:
             anomalies.append("EXTREME_MARGIN_SHIFT")
 
+    def compute_player_feature_drift(
+        self,
+        current_df: Optional[pd.DataFrame] = None,
+        reference_df: Optional[pd.DataFrame] = None
+    ) -> Dict[str, Any]:
+        """
+        Lightweight drift detector for high-value player serving features.
+        Monitors: player_min_avg_10, player_usage_pct_10, player_pts_per_min_10,
+        player_reb_per_min_10, player_ast_per_min_10, days_since_last_game.
+        """
+        core_features = [
+            "player_min_avg_10", "player_usage_pct_10", "player_pts_per_min_10",
+            "player_reb_per_min_10", "player_ast_per_min_10", "days_since_last_game"
+        ]
+
+        if reference_df is None or reference_df.empty:
+            return {
+                "status": "UNKNOWN",
+                "drift_detected": False,
+                "reason": "Missing baseline reference dataset",
+                "features": {}
+            }
+
+        if current_df is None or current_df.empty:
+            return {
+                "status": "UNKNOWN",
+                "drift_detected": False,
+                "reason": "No serving observations available",
+                "features": {}
+            }
+
+        drift_results = {}
+        high_drift_count = 0
+
+        for feat in core_features:
+            if feat in reference_df.columns and feat in current_df.columns:
+                ref_vals = reference_df[feat].dropna().values
+                curr_vals = current_df[feat].dropna().values
+                if len(ref_vals) >= 5 and len(curr_vals) >= 5:
+                    psi = calculate_psi(ref_vals, curr_vals)
+                    ref_mean = float(np.mean(ref_vals))
+                    curr_mean = float(np.mean(curr_vals))
+                    ref_std = float(np.std(ref_vals)) if float(np.std(ref_vals)) > 1e-9 else 1.0
+                    mean_shift = (curr_mean - ref_mean) / ref_std
+
+                    status = "high" if psi > PSI_THRESHOLD_MODERATE else ("moderate" if psi >= PSI_THRESHOLD_LOW else "low")
+                    if status == "high":
+                        high_drift_count += 1
+
+                    drift_results[feat] = {
+                        "psi": round(psi, 4),
+                        "mean_shift": round(mean_shift, 4),
+                        "status": status,
+                        "ref_mean": round(ref_mean, 3),
+                        "curr_mean": round(curr_mean, 3)
+                    }
+
+        overall_status = "DRIFT_DETECTED" if high_drift_count >= 2 else "NO_SIGNIFICANT_DRIFT"
         return {
-            "sample_size": len(preds),
-            "win_prob_mean": round(p_mean, 4),
-            "win_prob_std": round(p_std, 4),
-            "margin_mean": round(m_mean, 4),
-            "margin_std": round(m_std, 4),
-            "entropy": round(mean_entropy, 4),
-            "anomaly_flags": anomalies
+            "status": overall_status,
+            "drift_detected": (overall_status == "DRIFT_DETECTED"),
+            "high_drift_feature_count": high_drift_count,
+            "features": drift_results
         }
+

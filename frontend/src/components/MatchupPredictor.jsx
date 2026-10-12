@@ -3,6 +3,7 @@ import { Sparkles, RefreshCw, Calendar, ChevronDown, ChevronUp, CheckCircle2, Sh
 import { api } from '../api';
 import StatusBadge from './ui/StatusBadge';
 import ProbabilityBar from './ui/ProbabilityBar';
+import PlayerProjections from './PlayerProjections';
 
 const NBA_TEAMS = [
   { code: 'ATL', name: 'Atlanta Hawks' },
@@ -91,12 +92,15 @@ export default function MatchupPredictor({
         </p>
       </div>
 
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'minmax(320px, 420px) 1fr',
-        gap: '24px',
-        alignItems: 'start'
-      }}>
+      <div
+        className="matchup-builder-grid"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(320px, 420px) 1fr',
+          gap: '24px',
+          alignItems: 'start'
+        }}
+      >
         {/* Matchup Builder Form */}
         <form onSubmit={onSimulate} className="panel" style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -317,12 +321,12 @@ export default function MatchupPredictor({
 
             {/* Probability Comparison Bar */}
             <ProbabilityBar
-              homeProb={homeProb}
               awayProb={awayProb}
-              homeLabel={simResult.home_team}
+              homeProb={homeProb}
               awayLabel={simResult.away_team}
-              isHomeLakers={Boolean(simResult.home_team?.includes('Lakers'))}
+              homeLabel={simResult.home_team}
               isAwayLakers={Boolean(simResult.away_team?.includes('Lakers'))}
+              isHomeLakers={Boolean(simResult.home_team?.includes('Lakers'))}
               height={12}
             />
 
@@ -380,6 +384,16 @@ export default function MatchupPredictor({
           </div>
         )}
       </div>
+
+      {/* Player Projections for the Selected Matchup */}
+      {simResult && (
+        <PlayerProjections
+          homeTeam={simResult.home_team}
+          awayTeam={simResult.away_team}
+          gameDate={simResult.game_date}
+          gameId={simResult.game_id}
+        />
+      )}
     </div>
   );
 }

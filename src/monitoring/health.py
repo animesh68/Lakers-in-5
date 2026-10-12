@@ -1,16 +1,14 @@
-"""
-Model Health Diagnostic & Retraining Decision Engine for Lakers in 5.
-Evaluates production health (HEALTHY, WARNING, CRITICAL) and deterministic
-retraining advisory decisions with explicit, documented operational heuristics.
-"""
-
-from typing import Dict, Any, List, Optional
+import os
+import json
+from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime
 
 from src.monitoring.repository import PredictionRepository
 from src.monitoring.metrics import MonitoringMetricsService
 from src.monitoring.drift import DataDriftDetector
-from src.utils.logging import logger
+from src.monitoring.collector import metrics_collector
+from src.features.player_prediction_features import PLAYER_FEATURE_CONTRACT
+from src.utils.logging import logger, log_event
 
 # Operational Health Thresholds
 LOG_LOSS_WARNING_THRESHOLD = 0.630
@@ -28,19 +26,185 @@ DRIFT_HIGH_CRITICAL_COUNT = 5
 MIN_SAMPLES_FOR_EVALUATION = 15
 MIN_SAMPLES_FOR_RETRAIN_TRIGGER = 50
 
+
 class ModelHealthService:
     """
-    Evaluates multi-dimensional production model health across performance, drift, and calibration.
+    Evaluates multi-dimensional production model health across performance, drift, and calibration,
+    as well as artifact integrity, readiness, and shadow isolation.
     """
     def __init__(
         self,
         repository: Optional[PredictionRepository] = None,
         metrics_service: Optional[MonitoringMetricsService] = None,
-        drift_detector: Optional[DataDriftDetector] = None
+        drift_detector: Optional[DataDriftDetector] = None,
+        base_dir: Optional[str] = None
     ):
+        self.base_dir = base_dir or os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         self.repo = repository or PredictionRepository()
         self.metrics_service = metrics_service or MonitoringMetricsService(self.repo)
         self.drift_detector = drift_detector or DataDriftDetector(repository=self.repo)
+
+    def check_liveness(self) -> Dict[str, Any]:
+        """
+        Instantaneous process liveness check. Performs zero I/O or heavy computation.
+        """
+        return {
+            "status": "healthy",
+            "service": "Lakers in 5 Prediction Service",
+            "timestamp": datetime.utcnow().isoformat() + "Z"
+        }
+
+    def check_database_health(self) -> Dict[str, Any]:
+        """
+        Tests database / repository connectivity and returns structured health report.
+        """
+        log_event(logger, "database_check_started", level=10)
+        try:
+            from sqlalchemy import text
+            db_status = "healthy"
+            db_type = "parquet_fallback"
+            if self.repo.engine is not None:
+                with self.repo.engine.connect() as conn:
+                    conn.execute(text("SELECT 1"))
+                db_type = self.repo.engine.dialect.name
+            
+            log_event(logger, "database_check_completed", level=10, db_type=db_type, status=db_status)
+            return {
+                "status": "healthy",
+                "backend": db_type,
+                "timestamp": datetime.utcnow().isoformat() + "Z"
+            }
+        except Exception as e:
+            log_event(logger, "database_check_failed", level=40, error=str(e))
+            return {
+                "status": "unhealthy",
+                "error": str(e),
+                "timestamp": datetime.utcnow().isoformat() + "Z"
+            }
+
+    def check_model_health(self) -> Dict[str, Any]:
+        """
+        Validates artifact integrity, metadata contracts, and loading state for
+        both Production (PlayerSuite-v1.0) and Frozen Shadow (PlayerSuite-v1.1-c1-shadow).
+        """
+        prod_models_dir = os.path.join(self.base_dir, "models")
+        shadow_models_dir = os.path.join(self.base_dir, "models", "experimental", "c1_role_stratified")
+
+        # 1. Validate Production Models
+        prod_health: Dict[str, Any] = {"status": "healthy", "version": "PlayerSuite-v1.0", "artifacts": {}}
+        required_prod_files = [
+            "player_minutes_model.joblib",
+            "player_points_model.joblib",
+            "player_rebounds_model.joblib",
+            "player_assists_model.joblib",
+            "player_models_metadata.json"
+        ]
+        
+        prod_missing = []
+        for fname in required_prod_files:
+            fpath = os.path.join(prod_models_dir, fname)
+            exists = os.path.exists(fpath)
+            prod_health["artifacts"][fname] = {"exists": exists}
+            if not exists:
+                prod_missing.append(fname)
+
+        if prod_missing:
+            prod_health["status"] = "unhealthy"
+            prod_health["error"] = f"Missing required production artifacts: {prod_missing}"
+            metrics_collector.set_gauge("models_loaded", 0.0)
+        else:
+            # Check metadata contract
+            meta_path = os.path.join(prod_models_dir, "player_models_metadata.json")
+            try:
+                with open(meta_path, "r") as f:
+                    meta = json.load(f)
+                feat_contract = meta.get("feature_contract") or meta.get("features", [])
+                if len(feat_contract) != 24:
+                    prod_health["status"] = "unhealthy"
+                    prod_health["error"] = f"Expected 24 features in metadata, got {len(feat_contract)}."
+                else:
+                    prod_health["feature_contract_version"] = meta.get("feature_schema_version", "PLAYER_FEATURE_CONTRACT_V1")
+                    metrics_collector.set_gauge("models_loaded", 1.0)
+            except Exception as e:
+                prod_health["status"] = "unhealthy"
+                prod_health["error"] = f"Failed to parse production metadata: {e}"
+                metrics_collector.set_gauge("models_loaded", 0.0)
+
+        # 2. Validate Frozen Shadow Model
+        shadow_health: Dict[str, Any] = {"status": "healthy", "version": "PlayerSuite-v1.1-c1-shadow", "artifacts": {}}
+        required_shadow_files = [
+            "shadow_points_model.joblib",
+            "shadow_minutes_model.joblib",
+            "shadow_rebounds_model.joblib",
+            "shadow_assists_model.joblib",
+            "shadow_models_metadata.json"
+        ]
+        
+        shadow_missing = []
+        for fname in required_shadow_files:
+            fpath = os.path.join(shadow_models_dir, fname)
+            exists = os.path.exists(fpath)
+            shadow_health["artifacts"][fname] = {"exists": exists}
+            if not exists:
+                shadow_missing.append(fname)
+
+        if shadow_missing:
+            shadow_health["status"] = "degraded"
+            shadow_health["error"] = f"Shadow artifacts missing: {shadow_missing}"
+            metrics_collector.set_gauge("shadow_model_available", 0.0)
+        else:
+            meta_path = os.path.join(shadow_models_dir, "shadow_models_metadata.json")
+            try:
+                with open(meta_path, "r") as f:
+                    meta = json.load(f)
+                if meta.get("model_version") != "PlayerSuite-v1.1-c1-shadow":
+                    shadow_health["status"] = "degraded"
+                    shadow_health["error"] = f"Shadow model version mismatch: {meta.get('model_version')}"
+                    metrics_collector.set_gauge("shadow_model_available", 0.0)
+                else:
+                    shadow_health["roles"] = list(meta.get("role_definitions", {}).keys()) or ["star", "starter", "bench"]
+                    metrics_collector.set_gauge("shadow_model_available", 1.0)
+            except Exception as e:
+                shadow_health["status"] = "degraded"
+                shadow_health["error"] = f"Failed to parse shadow metadata: {e}"
+                metrics_collector.set_gauge("shadow_model_available", 0.0)
+
+        # Overall System Status calculation
+        if prod_health["status"] == "unhealthy":
+            overall_status = "unhealthy"
+        elif shadow_health["status"] == "degraded":
+            overall_status = "degraded"
+        else:
+            overall_status = "healthy"
+
+        return {
+            "status": overall_status,
+            "production": prod_health,
+            "shadow": shadow_health,
+            "timestamp": datetime.utcnow().isoformat() + "Z"
+        }
+
+    def check_readiness(self) -> Tuple[bool, Dict[str, Any]]:
+        """
+        Serving readiness probe. Verifies that critical production components are available.
+        Fails if production models are missing. Shadow degradation does NOT fail readiness.
+        """
+        model_diag = self.check_model_health()
+        db_diag = self.check_database_health()
+
+        is_prod_ready = model_diag.get("production", {}).get("status") == "healthy"
+        is_ready = is_prod_ready
+
+        status_str = "healthy" if is_ready and model_diag["status"] == "healthy" else ("degraded" if is_ready else "unhealthy")
+
+        report = {
+            "ready": is_ready,
+            "status": status_str,
+            "models": model_diag,
+            "database": db_diag,
+            "timestamp": datetime.utcnow().isoformat() + "Z"
+        }
+        return is_ready, report
 
     def evaluate_health(self, window: str = "30d") -> Dict[str, Any]:
         """
@@ -105,7 +269,7 @@ class ModelHealthService:
             reasons.append(f"{high_drift} high drift and {mod_drift} moderate drift features detected.")
 
         # Output distribution anomalies
-        anomalies = pred_drift.get("anomaly_flags", [])
+        anomalies = pred_drift.get("anomaly_flags", []) if pred_drift else []
         for anom in anomalies:
             if status != "CRITICAL":
                 status = "WARNING"

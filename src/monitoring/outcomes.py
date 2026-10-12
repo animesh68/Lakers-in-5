@@ -7,7 +7,10 @@ and idempotently updates actual scores, win indicators, and margins.
 import os
 from typing import List, Dict, Any, Optional
 from datetime import datetime
-import duckdb
+try:
+    import duckdb
+except Exception:
+    duckdb = None
 
 from src.monitoring.repository import PredictionRepository
 from src.monitoring.store import PredictionRecord
@@ -54,8 +57,9 @@ class OutcomeIngestionService:
         con = duckdb.connect()
         updates = []
         try:
+            p_sql = self.games_path.replace(os.sep, "/")
             # Query column names first to handle both camelCase and snake_case schemas
-            con.execute(f"SELECT * FROM '{self.games_path}' LIMIT 1")
+            con.execute(f"SELECT * FROM '{p_sql}' LIMIT 1")
             col_names = [desc[0] for desc in con.description]
             
             gid_col = "gameId" if "gameId" in col_names else "game_id"
@@ -73,7 +77,7 @@ class OutcomeIngestionService:
                     CAST({aid_col} AS VARCHAR) AS away_team_id,
                     {hscore_col} AS home_score,
                     {ascore_col} AS away_score
-                FROM '{self.games_path}'
+                FROM '{p_sql}'
                 WHERE {hscore_col} IS NOT NULL AND {ascore_col} IS NOT NULL
             """
             games_df = con.execute(query).df()

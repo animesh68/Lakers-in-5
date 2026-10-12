@@ -1,0 +1,11 @@
+# ==============================================================================
+# Lakers in 5 — Development & Testing Dependencies
+# ==============================================================================
+-r requirements.txt
+
+# Testing Frameworks & Coverage
+pytest>=8.0.0
+pytest-cov>=4.1.0
+
+# Code Quality & Formatting
+ruff>=0.3.0

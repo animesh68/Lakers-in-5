@@ -1,19 +1,19 @@
 import React from 'react';
 
 export default function ProbabilityBar({ 
-  homeProb = 0.5, 
   awayProb = 0.5, 
-  homeLabel = 'Home', 
+  homeProb = 0.5, 
   awayLabel = 'Away',
-  isHomeLakers = false,
+  homeLabel = 'Home', 
   isAwayLakers = false,
+  isHomeLakers = false,
   height = 10 
 }) {
-  const homePercent = Math.round(homeProb * 100);
   const awayPercent = Math.round(awayProb * 100);
+  const homePercent = Math.round(homeProb * 100);
 
-  const homeColor = isHomeLakers ? 'var(--gold-primary)' : 'rgba(255, 255, 255, 0.4)';
-  const awayColor = isAwayLakers ? 'var(--gold-primary)' : '#475569';
+  const awayColor = isAwayLakers ? 'var(--gold-primary)' : 'rgba(255, 255, 255, 0.4)';
+  const homeColor = isHomeLakers ? 'var(--gold-primary)' : '#475569';
 
   return (
     <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -25,13 +25,7 @@ export default function ProbabilityBar({
         overflow: 'hidden',
         display: 'flex'
       }}>
-        <div 
-          style={{ 
-            width: `${homePercent}%`, 
-            background: homeColor, 
-            transition: 'width 0.4s ease' 
-          }} 
-        />
+        {/* Left segment = Away */}
         <div 
           style={{ 
             width: `${awayPercent}%`, 
@@ -39,14 +33,24 @@ export default function ProbabilityBar({
             transition: 'width 0.4s ease' 
           }} 
         />
+        {/* Right segment = Home */}
+        <div 
+          style={{ 
+            width: `${homePercent}%`, 
+            background: homeColor, 
+            transition: 'width 0.4s ease' 
+          }} 
+        />
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', fontWeight: 600 }}>
-        <span style={{ color: isHomeLakers ? 'var(--gold-primary)' : 'var(--text-secondary)' }}>
-          {homeLabel}: {homePercent}%
-        </span>
+        {/* Left = Away */}
         <span style={{ color: isAwayLakers ? 'var(--gold-primary)' : 'var(--text-secondary)' }}>
           {awayLabel}: {awayPercent}%
+        </span>
+        {/* Right = Home */}
+        <span style={{ color: isHomeLakers ? 'var(--gold-primary)' : 'var(--text-secondary)' }}>
+          {homeLabel}: {homePercent}%
         </span>
       </div>
     </div>

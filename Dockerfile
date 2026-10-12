@@ -58,9 +58,9 @@ USER appuser
 # Expose ports for FastAPI (8000) and Streamlit Dashboard (8501)
 EXPOSE 8000 8501
 
-# Healthcheck targeting the application's native /health endpoint
+# Healthcheck targeting the application's native /health/ready endpoint
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
-    CMD curl -f http://localhost:8000/health || python -c "import os, urllib.request; p = os.environ.get('PORT', '8000'); urllib.request.urlopen(f'http://localhost:{p}/health')" || exit 1
+    CMD curl -f http://localhost:8000/health/ready || python -c "import os, urllib.request; p = os.environ.get('PORT', '8000'); urllib.request.urlopen(f'http://localhost:{p}/health/ready')" || exit 1
 
 # Default command: Production FastAPI ASGI server dynamically binding to PORT with 1 worker for container memory safety
 CMD ["sh", "-c", "uvicorn src.inference.api:app --host 0.0.0.0 --port ${PORT:-8000} --workers ${WEB_CONCURRENCY:-1} --timeout-keep-alive 30"]

@@ -5,10 +5,14 @@ drift detection, model health diagnostic, and retraining advisory decisions.
 """
 
 import os
+import uuid
+import time
 from typing import Optional, List, Dict, Any
 from datetime import date, datetime
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, PlainTextResponse, FileResponse, HTMLResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from src.inference.schemas import (
@@ -28,8 +32,9 @@ from src.monitoring.repository import PredictionRepository
 from src.monitoring.metrics import MonitoringMetricsService
 from src.monitoring.drift import DataDriftDetector
 from src.monitoring.health import ModelHealthService, RetrainingDecisionEngine
+from src.monitoring.collector import metrics_collector
 from src.monitoring.store import PredictionRecord
-from src.utils.logging import logger
+from src.utils.logging import logger, log_event, set_request_id, clear_request_id, get_request_id
 
 app = FastAPI(
     title="Lakers in 5 — Production Inference & Monitoring API",
@@ -44,6 +49,81 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+class RequestIDAndMetricsMiddleware(BaseHTTPMiddleware):
+    """
+    Middleware that attaches/propagates correlation IDs, records Prometheus HTTP metrics,
+    and logs request lifecycle events.
+    """
+    async def dispatch(self, request: Request, call_next):
+        # 1. Request Correlation ID
+        req_id = request.headers.get("X-Request-ID") or request.headers.get("X-Correlation-ID") or str(uuid.uuid4())
+        set_request_id(req_id)
+
+        t0 = time.time()
+        method = request.method
+        path = request.url.path
+
+        # Avoid logging metrics scrape or favicon at INFO to reduce container log spam
+        is_diagnostic = path in ["/metrics", "/favicon.ico"]
+        if not is_diagnostic:
+            log_event(logger, "request_started", level=10, method=method, path=path, request_id=req_id)
+
+        try:
+            response = await call_next(request)
+            duration_sec = time.time() - t0
+            status_code = response.status_code
+
+            # Inject header
+            response.headers["X-Request-ID"] = req_id
+
+            # Update Prometheus Metrics
+            status_label = f"{status_code // 100}xx"
+            metrics_collector.inc_counter("http_requests_total", labels={"method": method, "path": path, "status": status_label})
+            metrics_collector.observe_histogram("http_request_duration_seconds", duration_sec, labels={"method": method, "path": path})
+
+            if status_code >= 400:
+                metrics_collector.inc_counter("http_errors_total", labels={"method": method, "path": path, "status_code": str(status_code)})
+
+            if not is_diagnostic:
+                level = 20 if status_code < 400 else (30 if status_code < 500 else 40)
+                log_event(
+                    logger,
+                    "request_completed",
+                    level=level,
+                    method=method,
+                    path=path,
+                    status_code=status_code,
+                    latency_ms=round(duration_sec * 1000, 2),
+                    request_id=req_id
+                )
+            return response
+        except Exception as e:
+            duration_sec = time.time() - t0
+            metrics_collector.inc_counter("http_requests_total", labels={"method": method, "path": path, "status": "5xx"})
+            metrics_collector.inc_counter("http_errors_total", labels={"method": method, "path": path, "status_code": "500"})
+            log_event(
+                logger,
+                "request_failed",
+                level=40,
+                method=method,
+                path=path,
+                error=str(e),
+                latency_ms=round(duration_sec * 1000, 2),
+                request_id=req_id
+            )
+            return JSONResponse(
+                status_code=500,
+                content={"error_type": "INTERNAL_ERROR", "detail": "An internal server error occurred.", "request_id": req_id},
+                headers={"X-Request-ID": req_id}
+            )
+        finally:
+            clear_request_id()
+
+
+app.add_middleware(RequestIDAndMetricsMiddleware)
+
 
 # Global service singletons
 _predictor: Optional[GamePredictor] = None
@@ -118,24 +198,48 @@ def get_retrain_engine() -> RetrainingDecisionEngine:
 def startup_warmup():
     """Pre-warms champion models, DuckDB lakehouse, and schedule service on server boot."""
     try:
-        logger.info("Pre-warming production inference predictor and schedule service...")
+        log_event(logger, "application_started", message="Pre-warming production inference predictor and schedule service...")
         get_predictor()
         get_schedule_service().load_schedule()
-        logger.info("FastAPI service startup pre-warming completed successfully.")
+        log_event(logger, "application_ready", message="FastAPI service startup pre-warming completed successfully.")
     except Exception as e:
         logger.warning(f"Startup pre-warming encountered notice (non-fatal): {e}")
 
 
-@app.get("/health", summary="Service Health Check")
+@app.get("/health", summary="Liveness Probe")
 def health_check():
-    predictor = get_predictor()
-    return {
-        "status": "healthy",
-        "service": "Lakers in 5 Production Inference Service",
-        "model_version": predictor.model_version,
-        "classifier": predictor.clf_label,
-        "regressor": predictor.reg_label,
-    }
+    """Lightweight liveness probe answering 'is the process alive?' with zero heavy I/O."""
+    health_svc = get_health_service()
+    return health_svc.check_liveness()
+
+
+@app.get("/health/ready", summary="Readiness Probe")
+def readiness_check():
+    """
+    Serving readiness probe. Verifies that critical production components and models are ready.
+    Returns 200 if ready, 503 if unready (e.g. production model artifact missing).
+    """
+    health_svc = get_health_service()
+    is_ready, report = health_svc.check_readiness()
+    if not is_ready:
+        return JSONResponse(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content=report)
+    return report
+
+
+@app.get("/health/models", summary="Model Diagnostics & Integrity")
+def model_health_check():
+    """
+    Detailed model artifact integrity and version diagnostics for Production (v1.0) and Shadow (v1.1-c1).
+    """
+    health_svc = get_health_service()
+    return health_svc.check_model_health()
+
+
+@app.get("/metrics", summary="Prometheus Metrics Scrape Endpoint")
+def prometheus_metrics():
+    """Exposes real-time application metrics in standard Prometheus exposition format."""
+    text_content = metrics_collector.export_prometheus_text()
+    return PlainTextResponse(content=text_content, media_type="text/plain; version=0.0.4; charset=utf-8")
 
 
 @app.post("/predict", response_model=GamePredictionResponse, summary="Predict Game Outcome")
@@ -405,9 +509,19 @@ def get_retraining_decision_endpoint(window: str = Query("season", pattern="^(7d
 
 
 # ==============================================================================
-# FRONTEND STATIC ASSETS MOUNT
+# FRONTEND STATIC ASSETS & SPA ROUTE MOUNT
 # ==============================================================================
 frontend_dist_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "frontend", "dist")
+
+@app.get("/engine", include_in_schema=False)
+@app.get("/engine/{full_path:path}", include_in_schema=False)
+async def serve_engine_spa():
+    index_file = os.path.join(frontend_dist_dir, "index.html")
+    if os.path.exists(index_file):
+        return FileResponse(index_file)
+    return HTMLResponse("<!DOCTYPE html><html><body><h1>Lakers in 5 — Engine</h1><p>Frontend build in progress.</p></body></html>", status_code=200)
+
 if os.path.exists(frontend_dist_dir):
     app.mount("/", StaticFiles(directory=frontend_dist_dir, html=True), name="frontend")
+
 
