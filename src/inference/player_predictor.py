@@ -289,6 +289,8 @@ class PlayerPredictor:
             status="success"
         )
 
+        roster_diag = self.roster_service.get_roster_diagnostics()
+
         return PlayerPredictionResponse(
             game_id=game_id,
             game_date=str(game_date_str),
@@ -302,5 +304,8 @@ class PlayerPredictor:
                 "assists": active_suite.model_version
             },
             feature_schema_version=active_suite.schema_version,
-            prediction_timestamp=datetime.utcnow().isoformat()
+            prediction_timestamp=datetime.utcnow().isoformat(),
+            roster_status=roster_diag.get("status", "verified"),
+            roster_source=roster_diag.get("source_file")
         )
+

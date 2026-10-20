@@ -206,11 +206,35 @@ def startup_warmup():
         logger.warning(f"Startup pre-warming encountered notice (non-fatal): {e}")
 
 
+def get_git_commit() -> str:
+    """Returns safe short commit hash from environment or git fallback."""
+    commit = os.environ.get("RENDER_GIT_COMMIT") or os.environ.get("GIT_COMMIT")
+    if commit:
+        return commit[:8]
+    try:
+        import subprocess
+        res = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=2
+        )
+        if res.returncode == 0:
+            return res.stdout.strip()
+    except Exception:
+        pass
+    return "unknown"
+
+
 @app.get("/health", summary="Liveness Probe")
 def health_check():
     """Lightweight liveness probe answering 'is the process alive?' with zero heavy I/O."""
     health_svc = get_health_service()
-    return health_svc.check_liveness()
+    data = health_svc.check_liveness()
+    data["git_commit"] = get_git_commit()
+    data["app_version"] = app.version
+    return data
 
 
 @app.get("/health/ready", summary="Readiness Probe")
@@ -221,6 +245,17 @@ def readiness_check():
     """
     health_svc = get_health_service()
     is_ready, report = health_svc.check_readiness()
+
+    # Enrich with safe deployment diagnostics
+    report["git_commit"] = get_git_commit()
+    report["app_version"] = app.version
+    report["season"] = "2026-27"
+    try:
+        player_pred = get_player_predictor()
+        report["roster"] = player_pred.roster_service.get_roster_diagnostics()
+    except Exception as e:
+        report["roster"] = {"status": "unverified_fallback", "error": str(e)}
+
     if not is_ready:
         return JSONResponse(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content=report)
     return report
@@ -233,6 +268,34 @@ def model_health_check():
     """
     health_svc = get_health_service()
     return health_svc.check_model_health()
+
+
+@app.get("/health/version", summary="Safe Build & Roster Diagnostics")
+def version_diagnostics_endpoint():
+    """
+    Exposes safe, non-sensitive deployment observability: build revision,
+    model versions, schedule season, and roster source validation status.
+    """
+    try:
+        player_pred = get_player_predictor()
+        roster_diag = player_pred.roster_service.get_roster_diagnostics()
+    except Exception as e:
+        roster_diag = {"status": "error", "error": str(e)}
+
+    return {
+        "status": "healthy",
+        "app_version": app.version,
+        "git_commit": get_git_commit(),
+        "season": "2026-27",
+        "models": {
+            "game_prediction": "v1.0",
+            "player_performance": "PlayerSuite-v1.0",
+            "shadow": "PlayerSuite-v1.1-c1-shadow"
+        },
+        "roster": roster_diag,
+        "timestamp": datetime.utcnow().isoformat() + "Z"
+    }
+
 
 
 @app.get("/metrics", summary="Prometheus Metrics Scrape Endpoint")

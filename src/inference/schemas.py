@@ -142,4 +142,7 @@ class PlayerPredictionResponse(BaseModel):
     model_versions: Dict[str, str]
     feature_schema_version: str = "v1.0-player"
     prediction_timestamp: str
+    roster_status: str = Field(default="verified", description="Roster validation status: 'verified' or 'unverified_fallback'")
+    roster_source: Optional[str] = Field(default=None, description="Data source reference for roster resolution")
+
 

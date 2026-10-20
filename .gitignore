@@ -43,10 +43,19 @@ scratch/
 data/raw/*
 !data/raw/.gitkeep
 !data/raw/**/.gitkeep
+!data/raw/transactions/
+!data/raw/transactions/*.csv
+!data/raw/players/
+data/raw/players/*
+!data/raw/players/Players.csv
 data/processed/*
 !data/processed/.gitkeep
 !data/processed/parquet/
 !data/processed/parquet/*.parquet
+!data/processed/transactions/
+!data/processed/transactions/*.csv
+!data/processed/players/
+!data/processed/players/*.csv
 
 data/features/*
 !data/features/.gitkeep

@@ -27,6 +27,10 @@ configs/*.env
 
 # Raw Data & Intermediate Analytics (Not needed for production inference)
 data/raw/
+!data/raw/transactions/
+!data/raw/transactions/**
+!data/raw/players/
+!data/raw/players/Players.csv
 data/evaluation/
 *.duckdb
 *.duckdb.wal

@@ -41,13 +41,26 @@ class RosterService:
         duckdb_conn: Optional[Any] = None
     ):
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        self.csv_path = transactions_csv_path or os.path.join(
-            base_dir, "data", "raw", "transactions", "nba_2026_offseason_transactions.csv"
-        )
+        
+        # 1. Resolve transactions CSV path with candidate fallbacks across processed and raw data
+        candidate_tx_paths = [
+            transactions_csv_path,
+            os.path.join(base_dir, "data", "processed", "transactions", "nba_2026_offseason_transactions.csv"),
+            os.path.join(base_dir, "data", "raw", "transactions", "nba_2026_offseason_transactions.csv"),
+        ]
+        self.csv_path = next((p for p in candidate_tx_paths if p and os.path.exists(p)), candidate_tx_paths[1])
+
+        # 2. Resolve historical player game stats parquet
         self.parquet_path = parquet_path or os.path.join(
             base_dir, "data", "processed", "parquet", "player_game_stats.parquet"
         )
-        self.players_csv_path = os.path.join(base_dir, "data", "raw", "players", "Players.csv")
+
+        # 3. Resolve canonical players metadata CSV with candidate fallbacks
+        candidate_players_paths = [
+            os.path.join(base_dir, "data", "processed", "players", "Players.csv"),
+            os.path.join(base_dir, "data", "raw", "players", "Players.csv"),
+        ]
+        self.players_csv_path = next((p for p in candidate_players_paths if p and os.path.exists(p)), candidate_players_paths[0])
         self.conn = duckdb_conn
         
         self._transactions_df: Optional[pd.DataFrame] = None
@@ -379,3 +392,31 @@ class RosterService:
         # Sort by expected rotation weight (recent average minutes)
         team_roster.sort(key=lambda x: x.get("historical_avg_minutes", 0.0), reverse=True)
         return team_roster[:max_players]
+
+    def get_roster_diagnostics(self) -> Dict[str, Any]:
+        """
+        Returns safe, non-sensitive diagnostic metadata about roster resolution,
+        loaded transactions, and reference data integrity.
+        """
+        tx_count = 0
+        tx_loaded = False
+        try:
+            df_tx = self.load_transactions()
+            tx_count = len(df_tx)
+            tx_loaded = tx_count > 0
+        except Exception:
+            tx_loaded = False
+
+        status = "verified" if tx_loaded else "unverified_fallback"
+        source_rel = os.path.basename(self.csv_path) if self.csv_path else "none"
+
+        return {
+            "status": status,
+            "source_file": source_rel,
+            "transactions_count": tx_count,
+            "players_metadata_exists": bool(self.players_csv_path and os.path.exists(self.players_csv_path)),
+            "historical_parquet_exists": bool(self.parquet_path and os.path.exists(self.parquet_path)),
+            "season": "2026-27",
+            "last_transaction_cutoff": "2026-10-01"
+        }
+

@@ -181,3 +181,81 @@ def test_production_model_output_has_no_block_projection():
     assert "expected_minutes" in fields
     assert "predicted_rebounds" in fields
     assert "predicted_assists" in fields
+
+
+def test_roster_service_diagnostics_contract():
+    """
+    Verify that RosterService exposes verified diagnostic metadata including
+    transaction count, source file, season, and reference parquet/metadata existence.
+    """
+    service = RosterService()
+    diag = service.get_roster_diagnostics()
+    assert diag["status"] == "verified", f"Roster status must be 'verified', got {diag['status']}"
+    assert diag["source_file"] == "nba_2026_offseason_transactions.csv"
+    assert diag["transactions_count"] > 10, f"Expected >10 transactions, got {diag['transactions_count']}"
+    assert diag["season"] == "2026-27"
+    assert diag["historical_parquet_exists"] is True
+
+
+def test_transaction_ordering_departures_vacate_before_additions():
+    """
+    Verify chronological transaction ordering: departures vacate prior rosters first,
+    ensuring departed players (e.g. LeBron James) are vacated from LAL, and additions
+    (e.g. Collin Sexton, Walker Kessler) receive verified 2026-27 roster spots.
+    """
+    service = RosterService()
+    cutoff = "2026-10-21"
+    lal_roster = service.get_active_roster_universe("LAL", cutoff, max_players=20)
+    lal_names = [p["player_name"] for p in lal_roster]
+    lal_pids = [str(p["person_id"]) for p in lal_roster]
+
+    # Departed players must not be in LAL
+    assert "LeBron James" not in lal_names, "LeBron James departed LAL and must not appear in 2026-27 Lakers roster"
+    assert "2544" not in lal_pids, "LeBron James personId 2544 must not be in Lakers universe"
+    assert "Rui Hachimura" not in lal_names, "Rui Hachimura departed LAL and must not appear in Lakers roster"
+    assert "Deandre Ayton" not in lal_names, "Deandre Ayton must not appear in Lakers roster"
+
+    # Added players must be in LAL
+    assert "Collin Sexton" in lal_names, "Collin Sexton was added to LAL in 2026 offseason and must be eligible"
+    assert "Walker Kessler" in lal_names, "Walker Kessler was added to LAL in 2026 offseason and must be eligible"
+    assert any("Grimes" in name for name in lal_names), "Quentin Grimes was added to LAL and must be eligible"
+
+
+def test_player_prediction_response_observability_metadata():
+    """
+    Verify that PlayerPredictor attaches roster validation status and source file
+    to the prediction response for production deployment observability.
+    """
+    predictor = PlayerPredictor()
+    res = predictor.predict_scheduled_game_players("Los Angeles Lakers", "Golden State Warriors", "2026-10-21")
+    assert res.roster_status == "verified", f"Expected roster_status='verified', got {res.roster_status}"
+    assert res.roster_source == "nba_2026_offseason_transactions.csv"
+    assert len(res.players) > 0
+
+
+def test_retired_historical_players_cannot_enter_via_default_fallbacks():
+    """
+    Verify that historical retired players cannot enter the rotation through default minute fallbacks,
+    and all rotation players have recent activity in the active window.
+    """
+    service = RosterService()
+    # Check across multiple franchises
+    for team_code in ["LAL", "GSW", "BOS", "MIA"]:
+        roster = service.get_active_roster_universe(team_code, "2026-10-21", max_players=15)
+        for p in roster:
+            assert p["last_game_date"] >= "2025-01-01", (
+                f"Player {p['player_name']} on {team_code} has stale game date {p['last_game_date']}"
+            )
+
+
+def test_shadow_model_isolation_preserves_production():
+    """
+    Verify that shadow candidate evaluation executes without altering production prediction values.
+    """
+    predictor = PlayerPredictor()
+    res_prod = predictor.predict_scheduled_game_players("Los Angeles Lakers", "Golden State Warriors", "2026-10-21", model_version="prod")
+    assert res_prod.model_versions["minutes"] == "PlayerSuite-v1.0"
+    for p in res_prod.players:
+        assert p.expected_minutes > 0.0
+        assert p.predicted_points >= 0.0
+

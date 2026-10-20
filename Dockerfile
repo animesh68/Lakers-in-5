@@ -44,6 +44,8 @@ COPY --chown=appuser:appgroup scripts/ /app/scripts/
 COPY --chown=appuser:appgroup models/ /app/models/
 COPY --chown=appuser:appgroup data/processed/ /app/data/processed/
 COPY --chown=appuser:appgroup data/features/ /app/data/features/
+COPY --chown=appuser:appgroup data/raw/transactions/ /app/data/raw/transactions/
+COPY --chown=appuser:appgroup data/raw/players/Players.csv /app/data/raw/players/Players.csv
 COPY --chown=appuser:appgroup configs/ /app/configs/
 
 # Copy built frontend assets from Stage 1 into /app/frontend/dist
